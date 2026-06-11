@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
+  Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +36,22 @@ type Message = {
   id: string; sender_id: string; receiver_id: string;
   content: string; created_at: string; read_at: string | null;
 };
+type Group = {
+  id: string; name: string; description: string | null;
+  avatar_url: string | null; created_by: string; created_at: string;
+};
+type GroupMember = {
+  group_id: string; user_id: string; role: "admin" | "member"; joined_at: string;
+};
+type GroupMessage = {
+  id: string; group_id: string; sender_id: string; content: string; created_at: string;
+};
 
 type Tab = "chats" | "friends" | "search";
+type Active =
+  | { type: "dm"; id: string }
+  | { type: "group"; id: string }
+  | null;
 
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
@@ -42,7 +62,7 @@ function ChatApp() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("chats");
-  const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const [active, setActive] = useState<Active>(null);
   const [presence, setPresence] = useState<Set<string>>(new Set());
 
   // --- queries ---
@@ -68,20 +88,43 @@ function ChatApp() {
     },
   });
 
-  // Profiles indexed by id for everyone involved in any friendship.
-  const friendIds = useMemo(() => {
-    const list = friendshipsQ.data ?? [];
+  const groupsQ = useQuery({
+    queryKey: ["groups", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("groups").select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Group[];
+    },
+  });
+
+  // All group memberships across user's groups
+  const groupIds = useMemo(() => (groupsQ.data ?? []).map((g) => g.id), [groupsQ.data]);
+  const allMembersQ = useQuery({
+    queryKey: ["group-members", groupIds],
+    enabled: groupIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("group_members").select("*").in("group_id", groupIds);
+      if (error) throw error;
+      return data as GroupMember[];
+    },
+  });
+
+  // Collect every profile we need (friends + group members + me)
+  const involvedIds = useMemo(() => {
     const ids = new Set<string>();
-    list.forEach((f) => { ids.add(f.sender_id); ids.add(f.receiver_id); });
+    (friendshipsQ.data ?? []).forEach((f) => { ids.add(f.sender_id); ids.add(f.receiver_id); });
+    (allMembersQ.data ?? []).forEach((m) => { ids.add(m.user_id); });
     if (user) ids.delete(user.id);
     return Array.from(ids);
-  }, [friendshipsQ.data, user]);
+  }, [friendshipsQ.data, allMembersQ.data, user]);
 
   const profilesQ = useQuery({
-    queryKey: ["profiles", friendIds],
-    enabled: friendIds.length > 0,
+    queryKey: ["profiles", involvedIds],
+    enabled: involvedIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").in("id", friendIds);
+      const { data, error } = await supabase.from("profiles").select("*").in("id", involvedIds);
       if (error) throw error;
       const map: Record<string, Profile> = {};
       (data as Profile[]).forEach((p) => { map[p.id] = p; });
@@ -119,7 +162,7 @@ function ChatApp() {
       .filter((x) => x.profile);
   }, [friendshipsQ.data, profilesQ.data, user]);
 
-  // --- realtime: messages + friendships + presence ---
+  // --- realtime: messages + friendships + groups + presence ---
   useEffect(() => {
     if (!user) return;
 
@@ -127,20 +170,30 @@ function ChatApp() {
       .channel("rt-messages-" + user.id)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["messages"] });
-        })
+        () => qc.invalidateQueries({ queryKey: ["messages"] }))
       .on("postgres_changes",
         { event: "*", schema: "public", table: "messages", filter: `sender_id=eq.${user.id}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["messages"] });
-        })
+        () => qc.invalidateQueries({ queryKey: ["messages"] }))
       .subscribe();
 
     const friendChannel = supabase
       .channel("rt-friendships-" + user.id)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => {
         qc.invalidateQueries({ queryKey: ["friendships"] });
+      })
+      .subscribe();
+
+    const groupChannel = supabase
+      .channel("rt-groups-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
+        qc.invalidateQueries({ queryKey: ["groups"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => {
+        qc.invalidateQueries({ queryKey: ["group-members"] });
+        qc.invalidateQueries({ queryKey: ["groups"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_messages" }, () => {
+        qc.invalidateQueries({ queryKey: ["group-messages"] });
       })
       .subscribe();
 
@@ -161,6 +214,7 @@ function ChatApp() {
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(friendChannel);
+      supabase.removeChannel(groupChannel);
       supabase.removeChannel(presenceChannel);
     };
   }, [user, qc]);
@@ -175,7 +229,12 @@ function ChatApp() {
   if (!user) return null;
 
   const me = profileQ.data;
-  const activeFriend = activeFriendId ? (profilesQ.data?.[activeFriendId] ?? null) : null;
+  const profiles = profilesQ.data ?? {};
+  const groups = groupsQ.data ?? [];
+  const allMembers = allMembersQ.data ?? [];
+
+  const activeFriend = active?.type === "dm" ? (profiles[active.id] ?? null) : null;
+  const activeGroup = active?.type === "group" ? (groups.find((g) => g.id === active.id) ?? null) : null;
 
   return (
     <div className="h-screen w-full flex bg-background text-foreground overflow-hidden">
@@ -206,17 +265,21 @@ function ChatApp() {
 
       {/* Side panel */}
       <section className="w-72 shrink-0 bg-card border-r border-border flex flex-col">
-        <header className="px-4 h-14 flex items-center border-b border-border">
+        <header className="px-4 h-14 flex items-center justify-between border-b border-border">
           <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-            {tab === "chats" ? "Direct messages" : tab === "friends" ? "Friends" : "Find people"}
+            {tab === "chats" ? "Conversations" : tab === "friends" ? "Friends" : "Find people"}
           </h2>
+          {tab === "chats" && (
+            <CreateGroupDialog friends={acceptedFriends} meId={user.id} onCreated={(id) => setActive({ type: "group", id })} />
+          )}
         </header>
         <ScrollArea className="flex-1">
           {tab === "chats" && (
             <ChatsList
               friends={acceptedFriends}
-              activeId={activeFriendId}
-              onSelect={setActiveFriendId}
+              groups={groups}
+              active={active}
+              onSelect={setActive}
               presence={presence}
             />
           )}
@@ -226,7 +289,7 @@ function ChatApp() {
               incoming={pendingIncoming}
               outgoing={pendingOutgoing}
               presence={presence}
-              onMessage={(id) => { setActiveFriendId(id); setTab("chats"); }}
+              onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }}
             />
           )}
           {tab === "search" && <SearchUsers meId={user.id} />}
@@ -238,10 +301,20 @@ function ChatApp() {
         )}
       </section>
 
-      {/* Main chat */}
+      {/* Main */}
       <main className="flex-1 min-w-0 flex flex-col bg-background">
         {activeFriend ? (
           <ChatWindow friend={activeFriend} meId={user.id} online={presence.has(activeFriend.id)} />
+        ) : activeGroup ? (
+          <GroupChatWindow
+            group={activeGroup}
+            meId={user.id}
+            members={allMembers.filter((m) => m.group_id === activeGroup.id)}
+            profiles={profiles}
+            friends={acceptedFriends}
+            presence={presence}
+            onLeft={() => setActive(null)}
+          />
         ) : (
           <EmptyState onAdd={() => setTab("search")} />
         )}
@@ -276,44 +349,184 @@ function RailButton({
 }
 
 function ChatsList({
-  friends, activeId, onSelect, presence,
+  friends, groups, active, onSelect, presence,
 }: {
-  friends: Profile[]; activeId: string | null;
-  onSelect: (id: string) => void; presence: Set<string>;
+  friends: Profile[]; groups: Group[]; active: Active;
+  onSelect: (a: Active) => void; presence: Set<string>;
 }) {
-  if (friends.length === 0) {
+  if (friends.length === 0 && groups.length === 0) {
     return <div className="p-6 text-sm text-muted-foreground">
-      No conversations yet. Add a friend to start chatting.
+      No conversations yet. Add a friend or create a group to start chatting.
     </div>;
   }
   return (
-    <ul className="p-2 space-y-1">
-      {friends.map((f) => (
-        <li key={f.id}>
-          <button
-            onClick={() => onSelect(f.id)}
-            className={cn(
-              "w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition",
-              activeId === f.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
-            )}
-          >
-            <div className="relative">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={f.avatar_url ?? undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(f.username)}</AvatarFallback>
-              </Avatar>
-              {presence.has(f.id) && (
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[color:var(--color-online)]" />
+    <div className="p-2 space-y-4">
+      {groups.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <UsersRound className="h-3 w-3" /> Groups
+          </div>
+          <ul className="space-y-1">
+            {groups.map((g) => (
+              <li key={g.id}>
+                <button
+                  onClick={() => onSelect({ type: "group", id: g.id })}
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition",
+                    active?.type === "group" && active.id === g.id
+                      ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
+                  )}
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={g.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                      <UsersRound className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-sm">{g.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">Group</div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {friends.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <MessageCircle className="h-3 w-3" /> Direct messages
+          </div>
+          <ul className="space-y-1">
+            {friends.map((f) => (
+              <li key={f.id}>
+                <button
+                  onClick={() => onSelect({ type: "dm", id: f.id })}
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition",
+                    active?.type === "dm" && active.id === f.id
+                      ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
+                  )}
+                >
+                  <div className="relative">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={f.avatar_url ?? undefined} />
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(f.username)}</AvatarFallback>
+                    </Avatar>
+                    {presence.has(f.id) && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[color:var(--color-online)]" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-sm">{f.display_name || f.username}</div>
+                    <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateGroupDialog({
+  friends, meId, onCreated,
+}: { friends: Profile[]; meId: string; onCreated: (id: string) => void }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  function toggle(id: string) {
+    setPicked((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  async function submit() {
+    const trimmed = name.trim();
+    if (!trimmed) { toast.error("Group name is required"); return; }
+    setBusy(true);
+    const { data: g, error } = await supabase
+      .from("groups")
+      .insert({ name: trimmed, description: desc.trim() || null, created_by: meId })
+      .select()
+      .single();
+    if (error || !g) { setBusy(false); toast.error(error?.message ?? "Could not create group"); return; }
+
+    if (picked.size > 0) {
+      const rows = Array.from(picked).map((uid) => ({ group_id: g.id, user_id: uid, role: "member" as const }));
+      const { error: mErr } = await supabase.from("group_members").insert(rows);
+      if (mErr) toast.error("Group created, but adding members failed: " + mErr.message);
+    }
+    setBusy(false);
+    setOpen(false);
+    setName(""); setDesc(""); setPicked(new Set());
+    toast.success("Group created");
+    qc.invalidateQueries({ queryKey: ["groups"] });
+    qc.invalidateQueries({ queryKey: ["group-members"] });
+    onCreated(g.id);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="New group" title="New group">
+          <Plus className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New group</DialogTitle>
+          <DialogDescription>Create a group and add friends to it.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="group-name">Name</Label>
+            <Input id="group-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend plans" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="group-desc">Description (optional)</Label>
+            <Input id="group-desc" maxLength={200} value={desc} onChange={(e) => setDesc(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Add friends ({picked.size})</Label>
+            <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              {friends.length === 0 && (
+                <p className="text-xs text-muted-foreground p-3">You have no friends yet — you can add members later.</p>
               )}
+              {friends.map((f) => (
+                <label key={f.id} className="flex items-center gap-3 px-3 py-2 hover:bg-sidebar-accent/40 cursor-pointer">
+                  <Checkbox checked={picked.has(f.id)} onCheckedChange={() => toggle(f.id)} />
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={f.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-[10px]">{initials(f.username)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 text-sm">
+                    <div className="truncate font-medium">{f.display_name || f.username}</div>
+                    <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
+                  </div>
+                </label>
+              ))}
             </div>
-            <div className="min-w-0">
-              <div className="truncate font-medium text-sm">{f.display_name || f.username}</div>
-              <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
-            </div>
-          </button>
-        </li>
-      ))}
-    </ul>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
+          <Button onClick={submit} disabled={busy || !name.trim()}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -482,7 +695,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         </div>
         <h2 className="mt-5 text-2xl font-semibold">Pick a conversation</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Select a friend on the left to start chatting, or find someone new by their @username.
+          Select a friend or a group on the left, or find someone new by their @username.
         </p>
         <Button className="mt-5" onClick={onAdd}>
           <Search className="h-4 w-4 mr-2" /> Find people
@@ -514,7 +727,6 @@ function ChatWindow({ friend, meId, online }: { friend: Profile; meId: string; o
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgsQ.data]);
 
-  // Mark received messages as read
   useEffect(() => {
     const unread = (msgsQ.data ?? []).filter((m) => m.receiver_id === meId && !m.read_at);
     if (unread.length === 0) return;
@@ -607,5 +819,293 @@ function ChatWindow({ friend, meId, online }: { friend: Profile; meId: string; o
         </Button>
       </form>
     </>
+  );
+}
+
+function GroupChatWindow({
+  group, meId, members, profiles, friends, presence, onLeft,
+}: {
+  group: Group; meId: string; members: GroupMember[];
+  profiles: Record<string, Profile>; friends: Profile[];
+  presence: Set<string>; onLeft: () => void;
+}) {
+  const qc = useQueryClient();
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const meMember = members.find((m) => m.user_id === meId);
+  const isAdmin = meMember?.role === "admin";
+
+  const msgsQ = useQuery({
+    queryKey: ["group-messages", group.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("group_messages").select("*")
+        .eq("group_id", group.id)
+        .order("created_at", { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      return data as GroupMessage[];
+    },
+  });
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgsQ.data]);
+
+  async function send() {
+    const content = text.trim();
+    if (!content || sending) return;
+    setSending(true);
+    setText("");
+    const { error } = await supabase.from("group_messages").insert({
+      group_id: group.id, sender_id: meId, content,
+    });
+    setSending(false);
+    if (error) { toast.error(error.message); setText(content); }
+    else qc.invalidateQueries({ queryKey: ["group-messages", group.id] });
+  }
+
+  const memberProfiles = members
+    .map((m) => ({ member: m, profile: m.user_id === meId ? null : profiles[m.user_id] }))
+    .filter((x) => x.member.user_id === meId || x.profile);
+
+  const onlineCount = members.filter((m) => presence.has(m.user_id)).length;
+
+  return (
+    <>
+      <header className="h-14 px-5 border-b border-border flex items-center gap-3">
+        <Avatar className="h-9 w-9">
+          <AvatarImage src={group.avatar_url ?? undefined} />
+          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+            <UsersRound className="h-4 w-4" />
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold leading-tight truncate">{group.name}</div>
+          <div className="text-xs text-muted-foreground truncate">
+            {members.length} member{members.length === 1 ? "" : "s"} · {onlineCount} online
+          </div>
+        </div>
+        <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="Group info" onClick={() => setInfoOpen(true)}>
+          <Settings2 className="h-4 w-4" />
+        </Button>
+      </header>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+        {msgsQ.isLoading ? (
+          <div className="text-sm text-muted-foreground">Loading messages…</div>
+        ) : (msgsQ.data ?? []).length === 0 ? (
+          <div className="h-full grid place-items-center text-center text-sm text-muted-foreground">
+            <div>
+              <p>Welcome to <span className="text-foreground font-medium">{group.name}</span>.</p>
+              <p className="mt-1">Be the first to say something 👋</p>
+            </div>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {(msgsQ.data ?? []).map((m, i, arr) => {
+              const mine = m.sender_id === meId;
+              const sender = profiles[m.sender_id];
+              const prev = arr[i - 1];
+              const grouped = prev && prev.sender_id === m.sender_id &&
+                (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000);
+              return (
+                <li key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+                  {!mine && !grouped && (
+                    <div className="text-[11px] text-muted-foreground ml-3 mb-0.5">
+                      {sender?.display_name || sender?.username || "Member"}
+                    </div>
+                  )}
+                  <div className={cn(
+                    "max-w-[70%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap break-words",
+                    mine
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-card border border-border rounded-bl-sm",
+                    grouped && (mine ? "rounded-tr-sm" : "rounded-tl-sm")
+                  )}>
+                    {m.content}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); send(); }}
+        className="border-t border-border p-4 flex items-center gap-2"
+      >
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`Message ${group.name}`}
+          maxLength={4000}
+          className="h-11"
+          autoFocus
+        />
+        <Button type="submit" size="icon" className="h-11 w-11" disabled={sending || !text.trim()}>
+          <Send className="h-4 w-4" />
+        </Button>
+      </form>
+
+      <GroupInfoDialog
+        open={infoOpen} onOpenChange={setInfoOpen}
+        group={group} meId={meId} isAdmin={isAdmin}
+        memberProfiles={memberProfiles}
+        friends={friends}
+        presence={presence}
+        onLeft={() => { setInfoOpen(false); onLeft(); }}
+      />
+    </>
+  );
+}
+
+function GroupInfoDialog({
+  open, onOpenChange, group, meId, isAdmin, memberProfiles, friends, presence, onLeft,
+}: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  group: Group; meId: string; isAdmin: boolean;
+  memberProfiles: { member: GroupMember; profile: Profile | null }[];
+  friends: Profile[]; presence: Set<string>;
+  onLeft: () => void;
+}) {
+  const qc = useQueryClient();
+  const memberIds = new Set(memberProfiles.map((m) => m.member.user_id));
+  const addable = friends.filter((f) => !memberIds.has(f.id));
+
+  async function addMember(uid: string) {
+    const { error } = await supabase.from("group_members").insert({ group_id: group.id, user_id: uid, role: "member" });
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Member added");
+      qc.invalidateQueries({ queryKey: ["group-members"] });
+    }
+  }
+  async function removeMember(uid: string) {
+    const { error } = await supabase.from("group_members").delete()
+      .eq("group_id", group.id).eq("user_id", uid);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["group-members"] });
+  }
+  async function leave() {
+    const { error } = await supabase.from("group_members").delete()
+      .eq("group_id", group.id).eq("user_id", meId);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("You left the group");
+      qc.invalidateQueries({ queryKey: ["group-members"] });
+      qc.invalidateQueries({ queryKey: ["groups"] });
+      onLeft();
+    }
+  }
+  async function deleteGroup() {
+    if (!confirm(`Delete "${group.name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("groups").delete().eq("id", group.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Group deleted");
+      qc.invalidateQueries({ queryKey: ["groups"] });
+      onLeft();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{group.name}</DialogTitle>
+          {group.description && <DialogDescription>{group.description}</DialogDescription>}
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+              Members ({memberProfiles.length})
+            </div>
+            <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              {memberProfiles.map(({ member, profile }) => {
+                const isMe = member.user_id === meId;
+                const p = isMe ? null : profile!;
+                const name = isMe ? "You" : (p?.display_name || p?.username || "Member");
+                const handle = isMe ? "" : `@${p?.username ?? ""}`;
+                return (
+                  <div key={member.user_id} className="flex items-center gap-3 px-3 py-2">
+                    <div className="relative">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={p?.avatar_url ?? undefined} />
+                        <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                          {initials(p?.username ?? "me")}
+                        </AvatarFallback>
+                      </Avatar>
+                      {presence.has(member.user_id) && (
+                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-[color:var(--color-online)]" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium flex items-center gap-2">
+                        {name}
+                        {member.role === "admin" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase tracking-wider">Admin</span>
+                        )}
+                      </div>
+                      {handle && <div className="truncate text-xs text-muted-foreground">{handle}</div>}
+                    </div>
+                    {isAdmin && !isMe && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
+                        onClick={() => removeMember(member.user_id)} aria-label="Remove">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {isAdmin && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+                Add friends
+              </div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                {addable.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3">No more friends to add.</p>
+                ) : addable.map((f) => (
+                  <div key={f.id} className="flex items-center gap-3 px-3 py-2">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={f.avatar_url ?? undefined} />
+                      <AvatarFallback className="bg-primary/20 text-primary text-[10px]">{initials(f.username)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div className="truncate font-medium">{f.display_name || f.username}</div>
+                      <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => addMember(f.id)}>
+                      <UserPlus className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex sm:justify-between gap-2">
+          <div>
+            {isAdmin && (
+              <Button variant="ghost" className="text-destructive" onClick={deleteGroup}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete group
+              </Button>
+            )}
+          </div>
+          <Button variant="ghost" onClick={leave}>
+            <LeaveIcon className="h-4 w-4 mr-1" /> Leave group
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
