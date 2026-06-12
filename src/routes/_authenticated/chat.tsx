@@ -455,21 +455,18 @@ function CreateGroupDialog({
     const trimmed = name.trim();
     if (!trimmed) { toast.error("Group name is required"); return; }
     setBusy(true);
-    // Use the live session user id so auth.uid() in RLS matches created_by.
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    const authedId = userData?.user?.id;
-    if (userErr || !authedId) {
+    // Use a SECURITY DEFINER RPC so group creation works regardless of
+    // any client-side auth/session edge cases — the function uses auth.uid()
+    // server-side and atomically creates the group + creator-as-admin row.
+    const { data: g, error } = await supabase.rpc("create_group", {
+      _name: trimmed,
+      _description: desc.trim() || null,
+    });
+    if (error || !g) {
       setBusy(false);
-      toast.error("You need to be signed in to create a group");
+      toast.error(error?.message ?? "Could not create group");
       return;
     }
-    const { data: g, error } = await supabase
-      .from("groups")
-      .insert({ name: trimmed, description: desc.trim() || null, created_by: authedId })
-      .select()
-      .single();
-    if (error || !g) { setBusy(false); toast.error(error?.message ?? "Could not create group"); return; }
-
 
     if (picked.size > 0) {
       const rows = Array.from(picked).map((uid) => ({ group_id: g.id, user_id: uid, role: "member" as const }));
@@ -484,6 +481,7 @@ function CreateGroupDialog({
     qc.invalidateQueries({ queryKey: ["group-members"] });
     onCreated(g.id);
   }
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
