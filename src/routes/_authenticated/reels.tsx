@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Heart, MessageCircle, Send, Plus, X, Play, Pause,
   Volume2, VolumeX, Upload, Loader2, Trash2, ChevronUp, ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -126,18 +127,6 @@ function ReelsPage() {
      */
     <div className="h-[100dvh] w-full bg-black flex items-center justify-center overflow-hidden relative">
 
-      {/* ── Upload button (top-right, always visible) ── */}
-      <div className="absolute top-4 right-4 z-30">
-        <Button
-          onClick={() => setUploadOpen(true)}
-          size="sm"
-          className="gap-2 rounded-xl shadow-[var(--shadow-glow)]"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          <Plus className="h-4 w-4" /> New reel
-        </Button>
-      </div>
-
       {/* ── Empty state ── */}
       {reels.length === 0 && !reelsQ.isLoading && (
         <div className="text-center px-6 z-10">
@@ -150,22 +139,24 @@ function ReelsPage() {
           <Button onClick={() => setUploadOpen(true)} className="gap-2" style={{ background: "var(--gradient-primary)" }}>
             <Plus className="h-4 w-4" /> Upload reel
           </Button>
+          {/* Back to chat when empty */}
+          <div className="mt-4">
+            <Link to="/chat">
+              <Button variant="ghost" size="sm" className="text-white/50 hover:text-white gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to chat
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
 
       {/* ── Feed: 9:16 container, centred ── */}
       {reels.length > 0 && (
         <>
-          {/*
-           * Width is clamped so the 9:16 frame never exceeds the viewport height.
-           * calc(100dvh * 9/16) = the exact width for a full-height 9:16 video.
-           * On mobile (portrait) this naturally fills the full width.
-           */}
           <div
             ref={containerRef}
             className="relative overflow-y-scroll snap-y snap-mandatory"
             style={{
-              /* 9:16 ratio: width = height × (9/16) */
               width: "min(100vw, calc(100dvh * 9 / 16))",
               height: "100dvh",
               scrollbarWidth: "none",
@@ -184,11 +175,12 @@ function ReelsPage() {
                 likes={likes.filter((l) => l.reel_id === reel.id)}
                 meId={user.id}
                 isActive={i === activeIndex}
+                onUpload={() => setUploadOpen(true)}
               />
             ))}
           </div>
 
-          {/* Up / down nav — sits just outside the reel frame on desktop */}
+          {/* Up / down nav — outside the reel frame on desktop */}
           {reels.length > 1 && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2
                             sm:right-[calc(50%-min(50vw,calc(100dvh*9/32))-44px)]">

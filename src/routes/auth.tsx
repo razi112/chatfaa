@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Eye, EyeOff, ArrowLeft, AtSign } from "lucide-react";
+import { MessageCircle, Eye, EyeOff, ArrowLeft, AtSign, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,6 +30,50 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password required"),
 });
 
+// ─── Username availability hook (same logic as in chat.tsx) ───
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+
+function useUsernameCheck(value: string) {
+  const [status, setStatus] = useState<UsernameStatus>("idle");
+
+  useEffect(() => {
+    const trimmed = value.trim();
+    if (!trimmed) { setStatus("idle"); return; }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) { setStatus("invalid"); return; }
+    setStatus("checking");
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("username", trimmed)
+        .maybeSingle();
+      if (error) { setStatus("idle"); return; }
+      setStatus(data ? "taken" : "available");
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  return status;
+}
+
+function UsernameBadge({ status }: { status: UsernameStatus }) {
+  if (status === "idle") return null;
+  const config = {
+    checking:  { label: "Checking…",    color: "oklch(0.70 0.015 268)", bg: "oklch(0.22 0.016 268)" },
+    available: { label: "✓ Available",  color: "oklch(0.76 0.19 152)",  bg: "oklch(0.20 0.08 152 / 0.3)" },
+    taken:     { label: "✗ Already taken", color: "oklch(0.62 0.22 25)", bg: "oklch(0.62 0.22 25 / 0.15)" },
+    invalid:   { label: "3-20 chars: a-z, 0-9, _", color: "oklch(0.78 0.18 60)", bg: "oklch(0.78 0.18 60 / 0.12)" },
+  };
+  const { label, color, bg } = config[status];
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium"
+      style={{ color, background: bg, border: `1px solid ${color}40` }}>
+      {status === "checking" && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+      {label}
+    </span>
+  );
+}
+
 function AuthPage() {
   const { mode: initialMode } = Route.useSearch();
   const [mode, setMode] = useState<"login" | "signup">(initialMode ?? "login");
@@ -38,6 +82,9 @@ function AuthPage() {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Live username check — only active during signup
+  const usernameStatus = useUsernameCheck(mode === "signup" ? form.username : "");
 
   useEffect(() => { if (user) navigate({ to: "/chat" }); }, [user, navigate]);
 
@@ -54,6 +101,8 @@ function AuthPage() {
       if (mode === "signup") {
         const parsed = signupSchema.safeParse(form);
         if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
+        if (usernameStatus === "taken") { toast.error("That username is already taken."); return; }
+        if (usernameStatus === "checking") { toast.error("Still checking username availability…"); return; }
 
         const { error } = await supabase.auth.signUp({
           email: parsed.data.email,
@@ -202,9 +251,17 @@ function AuthPage() {
 
               {/* @username — both modes */}
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                  {mode === "signup" && <UsernameBadge status={usernameStatus} />}
+                </div>
                 <div className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
-                  style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}>
+                  style={{
+                    background: "var(--color-input)",
+                    border: mode === "signup"
+                      ? `1px solid ${usernameStatus === "available" ? "oklch(0.76 0.19 152 / 0.7)" : usernameStatus === "taken" ? "oklch(0.62 0.22 25 / 0.7)" : "var(--color-border)"}`
+                      : "1px solid var(--color-border)",
+                  }}>
                   <span className="pl-3 pr-1 text-muted-foreground shrink-0">
                     <AtSign className="h-4 w-4" />
                   </span>
@@ -266,7 +323,7 @@ function AuthPage() {
                 type="submit"
                 className="w-full h-12 rounded-xl text-base font-semibold mt-2 shadow-[var(--shadow-glow)] transition-all hover:scale-[1.01] active:scale-[0.99]"
                 style={{ background: "var(--gradient-primary)" }}
-                disabled={loading}
+                disabled={loading || (mode === "signup" && (usernameStatus === "taken" || usernameStatus === "checking"))}
               >
                 {loading
                   ? <span className="flex items-center gap-2">
