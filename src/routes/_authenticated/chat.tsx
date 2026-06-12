@@ -1,16 +1,18 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
   Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
   Hash, Smile, Eraser, Ban, MoreVertical, Trash, ArrowLeft, Menu,
+  User, Camera, KeyRound, AlertTriangle, Save, Play,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -19,9 +21,11 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +111,7 @@ function ChatApp() {
   const [presence, setPresence] = useState<Set<string>>(new Set());
   // Mobile: controls whether the sidebar sheet is open
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // ── queries ──────────────────────────────────────────────────
   const profileQ = useQuery({
@@ -277,13 +282,22 @@ function ChatApp() {
 
       {me && (
         <div className="border-t px-4 py-3 flex items-center gap-3 shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
-          <div className="relative shrink-0">
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="relative shrink-0 rounded-full ring-2 ring-transparent hover:ring-primary/50 transition-all"
+            aria-label="Profile settings"
+          >
             <UserAvatar src={me.avatar_url} name={me.username} size="sm" />
             {presence.has(user.id) && <OnlineDot size="sm" />}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold truncate" style={{ color: "oklch(0.80 0.15 280)" }}>@{me.username}</div>
+            {me.display_name && <div className="text-[10px] text-muted-foreground truncate">{me.display_name}</div>}
           </div>
-          <span className="text-xs text-muted-foreground flex-1 truncate min-w-0">
-            <span className="font-semibold" style={{ color: "oklch(0.80 0.15 280)" }}>@{me.username}</span>
-          </span>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/8"
+            onClick={() => setProfileOpen(true)} aria-label="Settings">
+            <Settings2 className="h-4 w-4" />
+          </Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleSignOut} aria-label="Sign out">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -309,12 +323,23 @@ function ChatApp() {
               <RailButton icon={MessageCircle} active={tab === "chats"} onClick={() => setTab("chats")} label="Chats" />
               <RailButton icon={Users} active={tab === "friends"} onClick={() => setTab("friends")} label="Friends" badge={pendingIncoming.length || undefined} />
               <RailButton icon={Search} active={tab === "search"} onClick={() => setTab("search")} label="Find people" />
+              <Link to="/reels">
+                <RailButton icon={Play} active={false} onClick={() => {}} label="Reels" />
+              </Link>
             </div>
             <div className="flex flex-col items-center gap-2 pt-2 border-t w-full" style={{ borderColor: "oklch(0.18 0.016 268)" }}>
-              <div className="relative">
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="relative rounded-full ring-2 ring-transparent hover:ring-primary/50 transition-all"
+                aria-label="Profile settings"
+              >
                 <UserAvatar src={me?.avatar_url} name={me?.username ?? "?"} size="sm" />
                 {presence.has(user.id) && <OnlineDot size="sm" />}
-              </div>
+              </button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                onClick={() => setProfileOpen(true)} aria-label="Settings">
+                <Settings2 className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleSignOut} aria-label="Sign out">
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -336,8 +361,17 @@ function ChatApp() {
               {tab === "search" && <SearchUsers meId={user.id} />}
             </ScrollArea>
             {me && (
-              <div className="border-t px-4 py-3 text-xs text-muted-foreground shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
-                Signed in as <span className="font-semibold" style={{ color: "oklch(0.80 0.15 280)" }}>@{me.username}</span>
+              <div className="border-t px-4 py-3 flex items-center gap-2 shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+                <button onClick={() => setProfileOpen(true)} className="relative shrink-0 rounded-full" aria-label="Settings">
+                  <UserAvatar src={me.avatar_url} name={me.username} size="sm" />
+                </button>
+                <span className="text-xs text-muted-foreground flex-1 truncate min-w-0 font-semibold" style={{ color: "oklch(0.80 0.15 280)" }}>
+                  @{me.username}
+                </span>
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setProfileOpen(true)} aria-label="Settings">
+                  <Settings2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             )}
           </section>
@@ -398,13 +432,419 @@ function ChatApp() {
               </button>
             );
           })}
+          <Link to="/reels" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
+            <Play className="h-5 w-5" />
+            Reels
+          </Link>
         </nav>
+      )}
+
+      {/* ── Profile settings dialog ── */}
+      {me && (
+        <ProfileSettingsDialog
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+          profile={me}
+          userId={user.id}
+          onSignOut={handleSignOut}
+        />
       )}
     </div>
   );
 }
 
-// ─── Rail button (desktop only) ───────────────────────────────
+// ─── Profile Settings Dialog ──────────────────────────────────
+function ProfileSettingsDialog({ open, onOpenChange, profile, userId, onSignOut }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  profile: Profile; userId: string; onSignOut: () => void;
+}) {
+  const qc = useQueryClient();
+
+  // ── Profile tab state ────────────────────────────────────────
+  const [displayName, setDisplayName] = useState(profile.display_name ?? "");
+  const [bio, setBio] = useState(profile.bio ?? "");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // ── Avatar state ─────────────────────────────────────────────
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Username tab state ───────────────────────────────────────
+  const [newUsername, setNewUsername] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
+  const usernameStatus = useUsernameCheck(newUsername, profile.username);
+
+  // ── Password tab state ───────────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+
+  // ── Danger zone ──────────────────────────────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  // Reset form when profile changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      setDisplayName(profile.display_name ?? "");
+      setBio(profile.bio ?? "");
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      setNewUsername("");
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setDeleteConfirm("");
+    }
+  }, [open, profile]);
+
+  // ── Avatar pick ──────────────────────────────────────────────
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return; }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadAvatar(): Promise<string | null> {
+    if (!avatarFile) return null;
+    setUploadingAvatar(true);
+    const ext = avatarFile.name.split(".").pop();
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, avatarFile, { upsert: true });
+    setUploadingAvatar(false);
+    if (error) { toast.error("Avatar upload failed: " + error.message); return null; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    // Bust cache with timestamp
+    return `${data.publicUrl}?t=${Date.now()}`;
+  }
+
+  // ── Save profile ─────────────────────────────────────────────
+  async function saveProfile() {
+    setSavingProfile(true);
+    let avatarUrl: string | null | undefined = undefined;
+
+    if (avatarFile) {
+      avatarUrl = await uploadAvatar();
+      if (avatarUrl === null) { setSavingProfile(false); return; }
+    }
+
+    const updates: { display_name: string; bio: string; updated_at: string; avatar_url?: string } = {
+      updated_at: new Date().toISOString(),
+      display_name: displayName.trim() || profile.username,
+      bio: bio.trim(),
+    };
+    if (avatarUrl !== undefined) updates.avatar_url = avatarUrl;
+
+    const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+    setSavingProfile(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Profile updated");
+      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+    }
+  }
+
+  // ── Change username ──────────────────────────────────────────
+  async function saveUsername() {
+    if (!newUsername.trim()) { toast.error("Enter a new username"); return; }
+    setSavingUsername(true);
+    const { error } = await supabase.rpc("change_username", { _new_username: newUsername.trim() });
+    setSavingUsername(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Username updated");
+      setNewUsername("");
+      qc.invalidateQueries({ queryKey: ["me"] });
+    }
+  }
+
+  // ── Change password ──────────────────────────────────────────
+  async function savePassword() {
+    if (newPassword.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (newPassword !== confirmPassword) { toast.error("Passwords don't match"); return; }
+
+    setSavingPassword(true);
+    // Re-authenticate first to verify current password
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser?.email) { toast.error("Could not verify identity"); setSavingPassword(false); return; }
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: authUser.email, password: currentPassword,
+    });
+    if (signInErr) { toast.error("Current password is incorrect"); setSavingPassword(false); return; }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingPassword(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Password updated");
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    }
+  }
+
+  // ── Delete account ───────────────────────────────────────────
+  async function deleteAccount() {
+    if (deleteConfirm !== profile.username) { toast.error("Type your username to confirm"); return; }
+    setDeleting(true);
+    const { error } = await supabase.rpc("delete_own_account");
+    setDeleting(false);
+    if (error) toast.error(error.message);
+    else onSignOut();
+  }
+
+  const currentAvatar = avatarPreview ?? profile.avatar_url ?? undefined;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-lg p-0 overflow-hidden gap-0">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+          <DialogTitle className="text-lg font-bold flex items-center gap-2">
+            <User className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+            Profile & Settings
+          </DialogTitle>
+          <DialogDescription className="text-xs mt-0.5">Manage your account, appearance, and security.</DialogDescription>
+        </div>
+
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="w-full rounded-none border-b px-4 h-11 bg-transparent justify-start gap-0"
+            style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+            {[
+              { value: "profile", label: "Profile" },
+              { value: "username", label: "Username" },
+              { value: "password", label: "Password" },
+              { value: "danger",   label: "Danger" },
+            ].map((t) => (
+              <TabsTrigger key={t.value} value={t.value}
+                className={cn("rounded-none border-b-2 border-transparent px-4 py-2 text-xs font-medium data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground",
+                  t.value === "danger" && "data-[state=active]:text-destructive data-[state=active]:border-destructive"
+                )}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* ── Profile tab ── */}
+          <TabsContent value="profile" className="px-6 py-5 space-y-5 mt-0">
+            {/* Avatar */}
+            <div className="flex items-center gap-5">
+              <div className="relative shrink-0">
+                <Avatar className="h-20 w-20 ring-2 ring-border">
+                  <AvatarImage src={currentAvatar} />
+                  <AvatarFallback className="text-xl font-bold"
+                    style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.3), oklch(0.70 0.18 310 / 0.3))", color: "oklch(0.80 0.15 280)" }}>
+                    {initials(profile.username)}
+                  </AvatarFallback>
+                </Avatar>
+                <button onClick={() => avatarInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full grid place-items-center border-2 transition-colors"
+                  style={{ background: "var(--gradient-primary)", borderColor: "var(--color-background)" }}
+                  aria-label="Change avatar">
+                  <Camera className="h-3.5 w-3.5 text-white" />
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden" onChange={handleAvatarChange} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold truncate">@{profile.username}</div>
+                {profile.display_name && <div className="text-sm text-muted-foreground truncate">{profile.display_name}</div>}
+                <button onClick={() => avatarInputRef.current?.click()}
+                  className="text-xs mt-1.5 font-medium transition-colors"
+                  style={{ color: "oklch(0.75 0.18 280)" }}>
+                  {uploadingAvatar ? "Uploading…" : "Change photo"}
+                </button>
+              </div>
+            </div>
+
+            <Separator style={{ background: "oklch(0.24 0.016 268)" }} />
+
+            {/* Display name */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Display name</Label>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={profile.username} maxLength={50} className="rounded-xl" />
+              <p className="text-[11px] text-muted-foreground">This is how your name appears in chats.</p>
+            </div>
+
+            {/* Bio */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Bio</Label>
+              <Textarea value={bio} onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell people a bit about yourself…" maxLength={160} rows={3}
+                className="rounded-xl resize-none text-sm" />
+              <p className="text-[11px] text-muted-foreground">{bio.length}/160</p>
+            </div>
+
+            <Button onClick={saveProfile} disabled={savingProfile || uploadingAvatar}
+              className="w-full gap-2 rounded-xl shadow-[var(--shadow-glow)]"
+              style={{ background: "var(--gradient-primary)" }}>
+              {savingProfile || uploadingAvatar
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                : <><Save className="h-4 w-4" /> Save profile</>
+              }
+            </Button>
+          </TabsContent>
+
+          {/* ── Username tab ── */}
+          <TabsContent value="username" className="px-6 py-5 space-y-4 mt-0">
+            <div className="rounded-xl p-4 space-y-1" style={{ background: "oklch(0.17 0.016 268)", border: "1px solid oklch(0.24 0.016 268)" }}>
+              <p className="text-xs text-muted-foreground">Current username</p>
+              <p className="font-bold text-lg" style={{ color: "oklch(0.80 0.15 280)" }}>@{profile.username}</p>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-sm font-medium">New username</Label>
+                <UsernameBadge status={usernameStatus} />
+              </div>
+              <div className="flex items-center rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-ring"
+                style={{
+                  background: "var(--color-input)",
+                  border: `1px solid ${usernameStatus === "available" ? "oklch(0.76 0.19 152 / 0.6)" : usernameStatus === "taken" ? "oklch(0.62 0.22 25 / 0.6)" : "var(--color-border)"}`,
+                }}>
+                <span className="pl-3 pr-1 text-muted-foreground text-sm font-medium select-none">@</span>
+                <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="new_username" maxLength={20}
+                  className="border-0 bg-transparent focus-visible:ring-0 shadow-none rounded-none" />
+              </div>
+              <p className="text-[11px] text-muted-foreground">3-20 chars: letters, numbers, underscores only.</p>
+            </div>
+            <Button onClick={saveUsername}
+              disabled={savingUsername || !newUsername.trim() || usernameStatus === "taken" || usernameStatus === "checking" || usernameStatus === "invalid" || usernameStatus === "same"}
+              className="w-full gap-2 rounded-xl shadow-[var(--shadow-glow)]"
+              style={{ background: "var(--gradient-primary)" }}>
+              {savingUsername ? <><Loader2 className="h-4 w-4 animate-spin" /> Changing…</> : "Change username"}
+            </Button>
+          </TabsContent>
+
+          {/* ── Password tab ── */}
+          <TabsContent value="password" className="px-6 py-5 space-y-4 mt-0">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Current password</Label>
+              <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••" autoComplete="current-password" className="rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">New password</Label>
+              <div className="flex items-center rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-ring"
+                style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}>
+                <Input type={showNewPw ? "text" : "password"} value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••" minLength={8} autoComplete="new-password"
+                  className="border-0 bg-transparent focus-visible:ring-0 shadow-none rounded-none flex-1" />
+                <button type="button" onClick={() => setShowNewPw((v) => !v)}
+                  className="pr-3 pl-2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}>
+                  {showNewPw
+                    ? <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    : <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  }
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Confirm new password</Label>
+              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••" autoComplete="new-password" className="rounded-xl" />
+            </div>
+            <Button onClick={savePassword} disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+              className="w-full gap-2 rounded-xl shadow-[var(--shadow-glow)]"
+              style={{ background: "var(--gradient-primary)" }}>
+              {savingPassword ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating…</> : <><KeyRound className="h-4 w-4" /> Update password</>}
+            </Button>
+          </TabsContent>
+
+          {/* ── Danger zone tab ── */}
+          <TabsContent value="danger" className="px-6 py-5 space-y-4 mt-0">
+            <div className="rounded-xl p-4 space-y-3"
+              style={{ background: "oklch(0.62 0.22 25 / 0.08)", border: "1px solid oklch(0.62 0.22 25 / 0.3)" }}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: "oklch(0.62 0.22 25)" }} />
+                <p className="text-sm font-semibold" style={{ color: "oklch(0.62 0.22 25)" }}>Delete account</p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This permanently deletes your account, all messages, friendships, and group memberships.
+                This action <strong className="text-foreground">cannot be undone</strong>.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Type <span className="font-bold text-foreground">@{profile.username}</span> to confirm
+              </Label>
+              <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={profile.username} className="rounded-xl" />
+            </div>
+            <Button
+              onClick={deleteAccount}
+              disabled={deleting || deleteConfirm !== profile.username}
+              className="w-full gap-2 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {deleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete my account</>}
+            </Button>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Username availability hook ───────────────────────────────
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "same";
+
+function useUsernameCheck(value: string, currentUsername?: string) {
+  const [status, setStatus] = useState<UsernameStatus>("idle");
+
+  useEffect(() => {
+    const trimmed = value.trim();
+    if (!trimmed) { setStatus("idle"); return; }
+
+    // Same as current
+    if (currentUsername && trimmed.toLowerCase() === currentUsername.toLowerCase()) {
+      setStatus("same"); return;
+    }
+    // Format check
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) { setStatus("invalid"); return; }
+
+    setStatus("checking");
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("username", trimmed)
+        .maybeSingle();
+      if (error) { setStatus("idle"); return; }
+      setStatus(data ? "taken" : "available");
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [value, currentUsername]);
+
+  return status;
+}
+
+// Small inline badge shown next to username inputs
+function UsernameBadge({ status }: { status: UsernameStatus }) {
+  if (status === "idle" || status === "same") return null;
+
+  const config: Record<Exclude<UsernameStatus, "idle" | "same">, { label: string; color: string; bg: string }> = {
+    checking:  { label: "Checking…",  color: "oklch(0.70 0.015 268)", bg: "oklch(0.22 0.016 268)" },
+    available: { label: "✓ Available", color: "oklch(0.76 0.19 152)", bg: "oklch(0.20 0.08 152 / 0.3)" },
+    taken:     { label: "✗ Taken",     color: "oklch(0.62 0.22 25)",  bg: "oklch(0.62 0.22 25 / 0.15)" },
+    invalid:   { label: "3-20 chars: a-z, 0-9, _", color: "oklch(0.78 0.18 60)", bg: "oklch(0.78 0.18 60 / 0.12)" },
+  };
+
+  const { label, color, bg } = config[status];
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium"
+      style={{ color, background: bg, border: `1px solid ${color}40` }}>
+      {status === "checking" && <Loader2 className="h-2.5 w-2.5 animate-spin mr-1" />}
+      {label}
+    </span>
+  );
+}
 function RailButton({ icon: Icon, active, onClick, label, badge }: {
   icon: typeof MessageCircle; active: boolean; onClick: () => void; label: string; badge?: number;
 }) {

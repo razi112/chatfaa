@@ -15,21 +15,27 @@ export type Database = {
   public: {
     Tables: {
       blocked_users: {
-        Row: {
-          blocker_id: string
-          blocked_id: string
-          created_at: string
-        }
-        Insert: {
-          blocker_id: string
-          blocked_id: string
-          created_at?: string
-        }
-        Update: {
-          blocker_id?: string
-          blocked_id?: string
-          created_at?: string
-        }
+        Row: { blocker_id: string; blocked_id: string; created_at: string }
+        Insert: { blocker_id: string; blocked_id: string; created_at?: string }
+        Update: { blocker_id?: string; blocked_id?: string; created_at?: string }
+        Relationships: []
+      }
+      reels: {
+        Row: { id: string; user_id: string; video_url: string; thumbnail_url: string | null; caption: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; video_url: string; thumbnail_url?: string | null; caption?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; video_url?: string; thumbnail_url?: string | null; caption?: string | null; updated_at?: string }
+        Relationships: []
+      }
+      reel_likes: {
+        Row: { reel_id: string; user_id: string; created_at: string }
+        Insert: { reel_id: string; user_id: string; created_at?: string }
+        Update: { reel_id?: string; user_id?: string; created_at?: string }
+        Relationships: []
+      }
+      reel_comments: {
+        Row: { id: string; reel_id: string; user_id: string; content: string; created_at: string }
+        Insert: { id?: string; reel_id: string; user_id: string; content: string; created_at?: string }
+        Update: { id?: string; reel_id?: string; user_id?: string; content?: string }
         Relationships: []
       }
       friendships: {
@@ -224,6 +230,8 @@ export type Database = {
       clear_dm_chat: { Args: { _other_user: string }; Returns: void }
       clear_group_chat: { Args: { _group_id: string }; Returns: void }
       get_email_by_username: { Args: { _username: string }; Returns: string | null }
+      change_username: { Args: { _new_username: string }; Returns: void }
+      delete_own_account: { Args: Record<string, never>; Returns: void }
       create_group: {
         Args: { _description?: string; _name: string }
         Returns: {
