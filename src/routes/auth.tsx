@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { MessageCircle, Eye, EyeOff, ArrowLeft, AtSign } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,12 +19,14 @@ export const Route = createFileRoute("/auth")({
 });
 
 const signupSchema = z.object({
-  username: z.string().regex(/^[a-zA-Z0-9_]{3,20}$/, "3-20 chars: letters, numbers, underscores"),
+  username: z.string().regex(/^[a-zA-Z0-9_]{3,20}$/, "3-20 chars: letters, numbers, underscores only"),
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "At least 8 characters").max(72),
 });
+
+// Login: username + password (we resolve email server-side)
 const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
+  username: z.string().min(1, "Username required"),
   password: z.string().min(1, "Password required"),
 });
 
@@ -39,6 +41,12 @@ function AuthPage() {
 
   useEffect(() => { if (user) navigate({ to: "/chat" }); }, [user, navigate]);
 
+  function switchMode(m: "login" | "signup") {
+    setMode(m);
+    setForm({ username: "", email: "", password: "" });
+    setShowPassword(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -46,6 +54,7 @@ function AuthPage() {
       if (mode === "signup") {
         const parsed = signupSchema.safeParse(form);
         if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
+
         const { error } = await supabase.auth.signUp({
           email: parsed.data.email,
           password: parsed.data.password,
@@ -59,13 +68,26 @@ function AuthPage() {
           else toast.error(error.message);
           return;
         }
-        toast.success("Welcome to chatfaa!");
+        toast.success("Account created! Welcome to chatfaa 🎉");
+
       } else {
-        const parsed = loginSchema.safeParse({ email: form.email, password: form.password });
+        // ── Username login: resolve email first, then sign in ──
+        const parsed = loginSchema.safeParse({ username: form.username, password: form.password });
         if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
-        const { error } = await supabase.auth.signInWithPassword(parsed.data);
+
+        const { data: resolvedEmail, error: lookupErr } = await supabase.rpc("get_email_by_username", {
+          _username: parsed.data.username.trim(),
+        });
+
+        if (lookupErr) { toast.error("Login failed. Please try again."); return; }
+        if (!resolvedEmail) { toast.error("No account found with that username."); return; }
+
+        const { error } = await supabase.auth.signInWithPassword({
+          email: resolvedEmail as string,
+          password: parsed.data.password,
+        });
         if (error) {
-          if (error.message.toLowerCase().includes("invalid")) toast.error("Wrong email or password.");
+          if (error.message.toLowerCase().includes("invalid")) toast.error("Wrong password.");
           else toast.error(error.message);
           return;
         }
@@ -80,54 +102,29 @@ function AuthPage() {
     <div className="min-h-screen flex bg-background text-foreground overflow-hidden">
       {/* Ambient orbs */}
       <div className="fixed inset-0 pointer-events-none" aria-hidden>
-        <div
-          className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full"
-          style={{
-            background: "radial-gradient(ellipse, oklch(0.55 0.22 280 / 0.35) 0%, transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full"
-          style={{
-            background: "radial-gradient(ellipse, oklch(0.60 0.20 310 / 0.20) 0%, transparent 70%)",
-            filter: "blur(80px)",
-          }}
-        />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full"
+          style={{ background: "radial-gradient(ellipse, oklch(0.55 0.22 280 / 0.35) 0%, transparent 70%)", filter: "blur(60px)" }} />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full"
+          style={{ background: "radial-gradient(ellipse, oklch(0.60 0.20 310 / 0.20) 0%, transparent 70%)", filter: "blur(80px)" }} />
       </div>
 
-      {/* Left decorative panel — hidden on small screens */}
-      <div
-        className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(145deg, oklch(0.14 0.016 268) 0%, oklch(0.11 0.014 268) 100%)",
-          borderRight: "1px solid oklch(0.22 0.016 268)",
-        }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "radial-gradient(ellipse at 30% 30%, oklch(0.55 0.22 280 / 0.15) 0%, transparent 60%)",
-          }}
-        />
+      {/* Left decorative panel — desktop only */}
+      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 relative overflow-hidden"
+        style={{ background: "linear-gradient(145deg, oklch(0.14 0.016 268) 0%, oklch(0.11 0.014 268) 100%)", borderRight: "1px solid oklch(0.22 0.016 268)" }}>
+        <div className="absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at 30% 30%, oklch(0.55 0.22 280 / 0.15) 0%, transparent 60%)" }} />
         <Link to="/" className="relative flex items-center gap-3 z-10">
-          <div
-            className="grid h-10 w-10 place-items-center rounded-2xl"
-            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-          >
+          <div className="grid h-10 w-10 place-items-center rounded-2xl"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}>
             <MessageCircle className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-bold tracking-tight">chatfaa</span>
         </Link>
-
         <div className="relative z-10 space-y-10">
           <div>
             <h2 className="text-3xl font-bold tracking-tight mb-4">
               Chat without limits,<br />
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: "var(--gradient-primary)" }}
-              >
+              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
                 share without borders.
               </span>
             </h2>
@@ -138,15 +135,13 @@ function AuthPage() {
           <div className="space-y-4">
             {[
               "No phone number required",
-              "End-to-end row-level security",
+              "Login with just your @username",
               "Real-time messages & presence",
               "Group chats with admin controls",
             ].map((feat) => (
               <div key={feat} className="flex items-center gap-3">
-                <div
-                  className="h-5 w-5 rounded-full grid place-items-center shrink-0"
-                  style={{ background: "oklch(0.65 0.22 280 / 0.2)", border: "1px solid oklch(0.65 0.22 280 / 0.4)" }}
-                >
+                <div className="h-5 w-5 rounded-full grid place-items-center shrink-0"
+                  style={{ background: "oklch(0.65 0.22 280 / 0.2)", border: "1px solid oklch(0.65 0.22 280 / 0.4)" }}>
                   <div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--gradient-primary)" }} />
                 </div>
                 <span className="text-sm text-muted-foreground">{feat}</span>
@@ -154,60 +149,39 @@ function AuthPage() {
             ))}
           </div>
         </div>
-
-        <p className="relative z-10 text-xs text-muted-foreground/60">
-          © {new Date().getFullYear()} chatfaa
-        </p>
+        <p className="relative z-10 text-xs text-muted-foreground/60">© {new Date().getFullYear()} chatfaa</p>
       </div>
 
       {/* Right — form panel */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
         <div className="w-full max-w-md">
-          {/* Back to home — mobile only */}
-          <Link
-            to="/"
-            className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to home
+          <Link to="/" className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back to home
           </Link>
 
-          {/* Card */}
-          <div
-            className="rounded-3xl p-8"
+          <div className="rounded-3xl p-8"
             style={{
               background: "linear-gradient(145deg, oklch(0.16 0.016 268 / 0.95), oklch(0.13 0.014 268 / 0.98))",
               border: "1px solid oklch(0.28 0.018 268 / 0.7)",
               boxShadow: "0 24px 80px -20px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.65 0.22 280 / 0.05)",
-            }}
-          >
-            {/* Logo — shown on mobile (large screens have left panel) */}
+            }}>
+            {/* Mobile logo */}
             <div className="lg:hidden flex items-center gap-3 mb-8">
-              <div
-                className="grid h-9 w-9 place-items-center rounded-xl"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                <MessageCircle className="h-4.5 w-4.5 text-white" />
+              <div className="grid h-9 w-9 place-items-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
+                <MessageCircle className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold">chatfaa</span>
             </div>
 
-            {/* Toggle tabs */}
-            <div
-              className="flex rounded-xl p-1 mb-7"
-              style={{ background: "oklch(0.12 0.014 268)" }}
-            >
+            {/* Tab switcher */}
+            <div className="flex rounded-xl p-1 mb-7" style={{ background: "oklch(0.12 0.014 268)" }}>
               {(["login", "signup"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                <button key={m} onClick={() => switchMode(m)}
+                  className={cn("flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                     mode === m
                       ? "bg-card text-foreground shadow-[0_2px_8px_-2px_oklch(0_0_0/0.4)]"
                       : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
+                  )}>
                   {m === "login" ? "Log in" : "Sign up"}
                 </button>
               ))}
@@ -219,53 +193,56 @@ function AuthPage() {
               </h1>
               <p className="text-sm text-muted-foreground">
                 {mode === "login"
-                  ? "Log in to keep the conversation going."
+                  ? "Enter your @username and password to continue."
                   : "Pick a username — that's how friends will find you."}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* @username — both modes */}
+              <div className="space-y-1.5">
+                <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                <div className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
+                  style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}>
+                  <span className="pl-3 pr-1 text-muted-foreground shrink-0">
+                    <AtSign className="h-4 w-4" />
+                  </span>
+                  <Input
+                    id="username"
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    placeholder="your_username"
+                    className="border-0 bg-transparent focus-visible:ring-0 shadow-none rounded-none"
+                    required
+                    autoComplete="username"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Email — signup only */}
               {mode === "signup" && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                  <div
-                    className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
-                    style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}
-                  >
-                    <span className="pl-4 pr-1 text-muted-foreground font-medium select-none">@</span>
-                    <Input
-                      id="username"
-                      value={form.username}
-                      onChange={(e) => setForm({ ...form, username: e.target.value })}
-                      placeholder="your_username"
-                      className="border-0 bg-transparent focus-visible:ring-0 shadow-none rounded-none"
-                      required
-                      autoComplete="username"
-                    />
-                  </div>
+                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="you@example.com"
+                    className="rounded-xl"
+                  />
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="you@example.com"
-                  className="rounded-xl"
-                />
-              </div>
-
+              {/* Password — both modes */}
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                <div
-                  className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
-                  style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}
-                >
+                <div className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
+                  style={{ background: "var(--color-input)", border: "1px solid var(--color-border)" }}>
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -277,13 +254,9 @@ function AuthPage() {
                     placeholder="••••••••"
                     className="border-0 bg-transparent focus-visible:ring-0 shadow-none rounded-none flex-1"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
+                  <button type="button" onClick={() => setShowPassword((v) => !v)}
                     className="pr-4 pl-2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
+                    tabIndex={-1} aria-label={showPassword ? "Hide password" : "Show password"}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -296,7 +269,10 @@ function AuthPage() {
                 disabled={loading}
               >
                 {loading
-                  ? <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Please wait…</span>
+                  ? <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Please wait…
+                    </span>
                   : mode === "login" ? "Log in" : "Create account"
                 }
               </Button>
@@ -305,13 +281,13 @@ function AuthPage() {
             <p className="mt-5 text-center text-sm text-muted-foreground">
               {mode === "login" ? (
                 <>New to chatfaa?{" "}
-                  <button onClick={() => setMode("signup")} className="font-medium text-primary hover:underline">
+                  <button onClick={() => switchMode("signup")} className="font-medium text-primary hover:underline">
                     Create an account
                   </button>
                 </>
               ) : (
                 <>Already have one?{" "}
-                  <button onClick={() => setMode("login")} className="font-medium text-primary hover:underline">
+                  <button onClick={() => switchMode("login")} className="font-medium text-primary hover:underline">
                     Log in
                   </button>
                 </>

@@ -223,6 +223,7 @@ export type Database = {
       unblock_user: { Args: { _target: string }; Returns: void }
       clear_dm_chat: { Args: { _other_user: string }; Returns: void }
       clear_group_chat: { Args: { _group_id: string }; Returns: void }
+      get_email_by_username: { Args: { _username: string }; Returns: string | null }
       create_group: {
         Args: { _description?: string; _name: string }
         Returns: {
