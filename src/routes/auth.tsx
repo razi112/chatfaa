@@ -56,15 +56,25 @@ function useUsernameCheck(value: string) {
   return status;
 }
 
-function UsernameBadge({ status }: { status: UsernameStatus }) {
+function UsernameBadge({ status, mode }: { status: UsernameStatus; mode: "login" | "signup" }) {
   if (status === "idle") return null;
+
   const config = {
-    checking:  { label: "Checking…",    color: "oklch(0.70 0.015 268)", bg: "oklch(0.22 0.016 268)" },
-    available: { label: "✓ Available",  color: "oklch(0.76 0.19 152)",  bg: "oklch(0.20 0.08 152 / 0.3)" },
-    taken:     { label: "✗ Already taken", color: "oklch(0.62 0.22 25)", bg: "oklch(0.62 0.22 25 / 0.15)" },
-    invalid:   { label: "3-20 chars: a-z, 0-9, _", color: "oklch(0.78 0.18 60)", bg: "oklch(0.78 0.18 60 / 0.12)" },
+    signup: {
+      checking:  { label: "Checking…",               color: "oklch(0.70 0.015 268)", bg: "oklch(0.22 0.016 268)" },
+      available: { label: "✓ Available",              color: "oklch(0.76 0.19 152)",  bg: "oklch(0.20 0.08 152 / 0.3)" },
+      taken:     { label: "✗ Already taken",          color: "oklch(0.62 0.22 25)",   bg: "oklch(0.62 0.22 25 / 0.15)" },
+      invalid:   { label: "3-20 chars: a-z, 0-9, _", color: "oklch(0.78 0.18 60)",   bg: "oklch(0.78 0.18 60 / 0.12)" },
+    },
+    login: {
+      checking:  { label: "Checking…",       color: "oklch(0.70 0.015 268)", bg: "oklch(0.22 0.016 268)" },
+      available: { label: "✗ Username not found", color: "oklch(0.62 0.22 25)",   bg: "oklch(0.62 0.22 25 / 0.15)" },
+      taken:     { label: "✓ Username found", color: "oklch(0.76 0.19 152)",  bg: "oklch(0.20 0.08 152 / 0.3)" },
+      invalid:   { label: "3-20 chars: a-z, 0-9, _", color: "oklch(0.78 0.18 60)",   bg: "oklch(0.78 0.18 60 / 0.12)" },
+    },
   };
-  const { label, color, bg } = config[status];
+
+  const { label, color, bg } = config[mode][status];
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium"
       style={{ color, background: bg, border: `1px solid ${color}40` }}>
@@ -83,10 +93,10 @@ function AuthPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Live username check — only active during signup
-  const usernameStatus = useUsernameCheck(mode === "signup" ? form.username : "");
+  // Live username check — active in both modes
+  const usernameStatus = useUsernameCheck(form.username);
 
-  useEffect(() => { if (user) navigate({ to: "/chat" }); }, [user, navigate]);
+  useEffect(() => { if (user) navigate({ to: "/feed" }); }, [user, navigate]);
 
   function switchMode(m: "login" | "signup") {
     setMode(m);
@@ -104,7 +114,7 @@ function AuthPage() {
         if (usernameStatus === "taken") { toast.error("That username is already taken."); return; }
         if (usernameStatus === "checking") { toast.error("Still checking username availability…"); return; }
 
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: parsed.data.email,
           password: parsed.data.password,
           options: {
@@ -117,30 +127,58 @@ function AuthPage() {
           else toast.error(error.message);
           return;
         }
-        toast.success("Account created! Welcome to chatfaa 🎉");
+        // If session is immediately available, navigate (email confirm disabled)
+        if (signUpData.session) {
+          toast.success("Account created! Welcome to chatfaa 🎉");
+          navigate({ to: "/feed" });
+          return;
+        }
+        // Email confirmation required
+        toast.success("Check your email to confirm your account, then log in.");
+        setMode("login");
+        setShowPassword(false);
+        setForm({ username: parsed.data.username, email: "", password: "" });
 
       } else {
-        // ── Username login: resolve email first, then sign in ──
+        // ── Username login: look up email directly from profiles table ──
         const parsed = loginSchema.safeParse({ username: form.username, password: form.password });
         if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
 
-        const { data: resolvedEmail, error: lookupErr } = await supabase.rpc("get_email_by_username", {
-          _username: parsed.data.username.trim(),
-        });
+        const { data: profile, error: lookupErr } = await supabase
+          .from("profiles")
+          .select("email")
+          .ilike("username", parsed.data.username.trim())
+          .maybeSingle() as unknown as { data: { email: string } | null; error: unknown };
 
-        if (lookupErr) { toast.error("Login failed. Please try again."); return; }
-        if (!resolvedEmail) { toast.error("No account found with that username."); return; }
+        if (lookupErr) {
+          console.error("Profile lookup error:", lookupErr);
+          toast.error("Login failed — please try again.");
+          return;
+        }
+        if (!profile?.email) {
+          toast.error("No account found with that username.");
+          return;
+        }
 
         const { error } = await supabase.auth.signInWithPassword({
-          email: resolvedEmail as string,
+          email: profile.email,
           password: parsed.data.password,
         });
         if (error) {
-          if (error.message.toLowerCase().includes("invalid")) toast.error("Wrong password.");
-          else toast.error(error.message);
+          if (
+            error.message.toLowerCase().includes("invalid") ||
+            error.message.toLowerCase().includes("credentials")
+          ) {
+            toast.error("Wrong password. Try again.");
+          } else if (error.message.toLowerCase().includes("confirm")) {
+            toast.error("Please confirm your email before logging in.");
+          } else {
+            toast.error(error.message);
+          }
           return;
         }
         toast.success("Welcome back!");
+        navigate({ to: "/feed" });
       }
     } finally {
       setLoading(false);
@@ -253,13 +291,15 @@ function AuthPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                  {mode === "signup" && <UsernameBadge status={usernameStatus} />}
+                  <UsernameBadge status={usernameStatus} mode={mode} />
                 </div>
                 <div className="flex items-center rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-ring"
                   style={{
                     background: "var(--color-input)",
-                    border: mode === "signup"
-                      ? `1px solid ${usernameStatus === "available" ? "oklch(0.76 0.19 152 / 0.7)" : usernameStatus === "taken" ? "oklch(0.62 0.22 25 / 0.7)" : "var(--color-border)"}`
+                    border: usernameStatus === "available"
+                      ? `1px solid ${mode === "signup" ? "oklch(0.76 0.19 152 / 0.7)" : "oklch(0.62 0.22 25 / 0.7)"}`
+                      : usernameStatus === "taken"
+                      ? `1px solid ${mode === "signup" ? "oklch(0.62 0.22 25 / 0.7)" : "oklch(0.76 0.19 152 / 0.7)"}`
                       : "1px solid var(--color-border)",
                   }}>
                   <span className="pl-3 pr-1 text-muted-foreground shrink-0">

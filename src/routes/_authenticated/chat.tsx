@@ -5,7 +5,7 @@ import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
   Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
   Hash, Smile, Eraser, Ban, MoreVertical, Trash, ArrowLeft, Menu,
-  User, Camera, KeyRound, AlertTriangle, Save, Play,
+  User, Camera, KeyRound, AlertTriangle, Save, Play, Home,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -320,9 +320,11 @@ function ChatApp() {
               <MessageCircle className="h-4 w-4 text-white" />
             </div>
             <div className="flex flex-col gap-1 flex-1">
-              <RailButton icon={MessageCircle} active={tab === "chats"} onClick={() => setTab("chats")} label="Chats" />
-              <RailButton icon={Users} active={tab === "friends"} onClick={() => setTab("friends")} label="Friends" badge={pendingIncoming.length || undefined} />
-              <RailButton icon={Search} active={tab === "search"} onClick={() => setTab("search")} label="Find people" />
+              <Link to="/feed">
+                <RailButton icon={Home} active={false} onClick={() => {}} label="Feed" />
+              </Link>
+              {/* Chat is always the active page — sidebar tab bar handles chats/friends/search */}
+              <RailButton icon={MessageCircle} active={true} onClick={() => setTab("chats")} label="Chat" />
               <Link to="/reels">
                 <RailButton icon={Play} active={false} onClick={() => {}} label="Reels" />
               </Link>
@@ -355,6 +357,35 @@ function ChatApp() {
               </h2>
               {tab === "chats" && <CreateGroupDialog friends={acceptedFriends} meId={user.id} onCreated={(id) => setActive({ type: "group", id })} />}
             </header>
+
+            {/* ── Tab bar ── */}
+            <div className="flex border-b shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+              {(["chats", "friends", "search"] as Tab[]).map((t) => {
+                const icons = { chats: MessageCircle, friends: Users, search: Search };
+                const Icon = icons[t];
+                return (
+                  <button key={t} onClick={() => setTab(t)}
+                    className={cn(
+                      "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium uppercase tracking-wide transition-colors relative",
+                      tab === t ? "text-white" : "text-muted-foreground hover:text-foreground"
+                    )}>
+                    <Icon className="h-4 w-4" />
+                    {t}
+                    {t === "friends" && pendingIncoming.length > 0 && (
+                      <span className="absolute top-1.5 right-1/4 h-4 w-4 text-[9px] font-bold grid place-items-center rounded-full text-white"
+                        style={{ background: "oklch(0.62 0.22 25)" }}>
+                        {pendingIncoming.length}
+                      </span>
+                    )}
+                    {tab === t && (
+                      <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full"
+                        style={{ background: "var(--gradient-primary)" }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             <ScrollArea className="flex-1 min-h-0">
               {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} />}
               {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }} />}
@@ -412,6 +443,10 @@ function ChatApp() {
       {isMobile && !active && (
         <nav className="fixed bottom-0 left-0 right-0 flex border-t z-40"
           style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
+          <Link to="/feed" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
+            <Home className="h-5 w-5" />
+            Feed
+          </Link>
           {(["chats", "friends", "search"] as Tab[]).map((t) => {
             const icons = { chats: MessageCircle, friends: Users, search: Search };
             const labels = { chats: "Chats", friends: "Friends", search: "Find" };
@@ -631,6 +666,12 @@ function ProfileSettingsDialog({ open, onOpenChange, profile, userId, onSignOut 
 
           {/* ── Profile tab ── */}
           <TabsContent value="profile" className="px-6 py-5 space-y-5 mt-0">
+            {/* View profile link */}
+            <Link to="/profile" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" size="sm" className="w-full gap-2 mb-1 rounded-xl border-primary/30 text-primary hover:bg-primary/10">
+                <User className="h-4 w-4" /> View my profile page
+              </Button>
+            </Link>
             {/* Avatar */}
             <div className="flex items-center gap-5">
               <div className="relative shrink-0">

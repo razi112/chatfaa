@@ -67,7 +67,7 @@ function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/chat" });
+    if (!loading && user) navigate({ to: "/feed" });
   }, [user, loading, navigate]);
 
   return (

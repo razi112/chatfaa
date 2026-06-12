@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Heart, MessageCircle, Send, Plus, X, Play, Pause,
   Volume2, VolumeX, Upload, Loader2, Trash2, ChevronUp, ChevronDown,
-  ArrowLeft, Video, PanelLeftClose, PanelLeftOpen,
+  ArrowLeft, Video, PanelLeftClose, PanelLeftOpen, Home,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -176,7 +176,6 @@ function ReelsPage() {
                 likes={likes.filter((l) => l.reel_id === reel.id)}
                 meId={user.id}
                 isActive={i === activeIndex}
-                onUpload={() => setUploadOpen(true)}
               />
             ))}
           </div>
@@ -225,6 +224,13 @@ function ReelsPage() {
 
         {/* Nav icons */}
         <div className="flex flex-col gap-1 flex-1">
+          {/* Feed */}
+          <Link to="/feed" aria-label="Feed" title="Feed">
+            <button className="relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent">
+              <Home className="h-[17px] w-[17px]" />
+            </button>
+          </Link>
+
           {/* Chats — navigate back */}
           <Link to="/chat" aria-label="Chats" title="Chats">
             <button className="relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent">
@@ -397,24 +403,10 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
             transform: "translate(-50%, -50%)",
           }}
         >
-          <svg
-            viewBox="0 0 96 96"
-            className="h-24 w-24 animate-heart-burst"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <linearGradient id="ig-heart-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%"   stopColor="#f9622e" />
-                <stop offset="40%"  stopColor="#e6337e" />
-                <stop offset="75%"  stopColor="#c13fc4" />
-                <stop offset="100%" stopColor="#7b4fe0" />
-              </linearGradient>
-            </defs>
-            <path
-              fill="url(#ig-heart-grad)"
-              d="M48 82 C48 82 8 56 8 30 C8 18.954 16.954 10 28 10 C34.627 10 40.556 13.19 44.5 18.12 L48 22.5 L51.5 18.12 C55.444 13.19 61.373 10 68 10 C79.046 10 88 18.954 88 30 C88 56 48 82 48 82Z"
-            />
-          </svg>
+          <Heart
+            className="h-16 w-16 animate-heart-burst"
+            style={{ color: "#e6337e", fill: "#e6337e" }}
+          />
         </div>
       )}
 
@@ -448,12 +440,14 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
         {/* User info */}
         <div className="flex items-center gap-2.5 mb-3">
-          <Avatar className="h-9 w-9 ring-2 ring-white/40 shrink-0">
-            <AvatarImage src={profile?.avatar_url ?? undefined} />
-            <AvatarFallback className="text-xs font-bold bg-primary/30 text-white">
-              {initials(profile?.username ?? "?")}
-            </AvatarFallback>
-          </Avatar>
+          <Link to="/profile" search={{ userId: reel.user_id }}>
+            <Avatar className="h-9 w-9 ring-2 ring-white/40 shrink-0 cursor-pointer hover:ring-white/70 transition-all">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="text-xs font-bold bg-primary/30 text-white">
+                {initials(profile?.username ?? "?")}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
           <div>
             <div className="text-white font-semibold text-sm leading-tight drop-shadow">
               {profile?.display_name || profile?.username || "Unknown"}
