@@ -97,11 +97,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  /* Prevent text size inflation on iOS */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* Respect safe areas (notch, home bar) */
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
   /* Scrollbar styling */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: oklch(0.32 0.018 268); border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: oklch(0.40 0.025 268); }
+  /* Tap highlight removal on mobile */
+  * { -webkit-tap-highlight-color: transparent; }
 }
 
 /* Glass card utility */

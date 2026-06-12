@@ -157,7 +157,7 @@ function Landing() {
             Find anyone by username — no phone, no drama. Just conversations.
           </p>
 
-          {/* CTAs */}
+      {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
             <Link to="/auth" search={{ mode: "signup" } as never}>
               <Button
