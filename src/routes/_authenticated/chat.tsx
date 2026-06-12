@@ -455,12 +455,21 @@ function CreateGroupDialog({
     const trimmed = name.trim();
     if (!trimmed) { toast.error("Group name is required"); return; }
     setBusy(true);
+    // Use the live session user id so auth.uid() in RLS matches created_by.
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    const authedId = userData?.user?.id;
+    if (userErr || !authedId) {
+      setBusy(false);
+      toast.error("You need to be signed in to create a group");
+      return;
+    }
     const { data: g, error } = await supabase
       .from("groups")
-      .insert({ name: trimmed, description: desc.trim() || null, created_by: meId })
+      .insert({ name: trimmed, description: desc.trim() || null, created_by: authedId })
       .select()
       .single();
     if (error || !g) { setBusy(false); toast.error(error?.message ?? "Could not create group"); return; }
+
 
     if (picked.size > 0) {
       const rows = Array.from(picked).map((uid) => ({ group_id: g.id, user_id: uid, role: "member" as const }));
