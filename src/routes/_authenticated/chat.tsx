@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
-  Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2,
+  Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
