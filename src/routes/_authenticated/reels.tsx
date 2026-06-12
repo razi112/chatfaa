@@ -68,7 +68,6 @@ function ReelsPage() {
     },
   });
 
-  // Fetch profiles for reel owners
   const ownerIds = [...new Set((reelsQ.data ?? []).map((r) => r.user_id))];
   const profilesQ = useQuery({
     queryKey: ["reel-profiles", ownerIds],
@@ -82,7 +81,6 @@ function ReelsPage() {
     },
   });
 
-  // Fetch likes
   const likesQ = useQuery({
     queryKey: ["reel-likes"],
     queryFn: async () => {
@@ -92,7 +90,6 @@ function ReelsPage() {
     },
   });
 
-  // Realtime subscription
   useEffect(() => {
     const ch = supabase.channel("rt-reels")
       .on("postgres_changes", { event: "*", schema: "public", table: "reels" }, () => qc.invalidateQueries({ queryKey: ["reels"] }))
@@ -102,7 +99,6 @@ function ReelsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  // Keyboard / scroll navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -123,8 +119,14 @@ function ReelsPage() {
   const likes = likesQ.data ?? [];
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-black overflow-hidden relative">
-      {/* Upload button */}
+    /*
+     * Outer shell: full viewport, black bg.
+     * On desktop the 9:16 reel is centred with black bars on both sides.
+     * On mobile (<= 768 px) it fills the full screen edge-to-edge.
+     */
+    <div className="h-[100dvh] w-full bg-black flex items-center justify-center overflow-hidden relative">
+
+      {/* ── Upload button (top-right, always visible) ── */}
       <div className="absolute top-4 right-4 z-30">
         <Button
           onClick={() => setUploadOpen(true)}
@@ -136,62 +138,80 @@ function ReelsPage() {
         </Button>
       </div>
 
-      {/* Feed */}
-      {reels.length === 0 && !reelsQ.isLoading ? (
-        <div className="flex-1 grid place-items-center text-center px-6">
-          <div>
-            <div className="mx-auto h-16 w-16 rounded-3xl grid place-items-center mb-5"
-              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}>
-              <Play className="h-8 w-8 text-white fill-white" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">No reels yet</h2>
-            <p className="text-sm text-white/50 mb-6">Be the first to share a reel.</p>
-            <Button onClick={() => setUploadOpen(true)} className="gap-2" style={{ background: "var(--gradient-primary)" }}>
-              <Plus className="h-4 w-4" /> Upload reel
-            </Button>
+      {/* ── Empty state ── */}
+      {reels.length === 0 && !reelsQ.isLoading && (
+        <div className="text-center px-6 z-10">
+          <div className="mx-auto h-16 w-16 rounded-3xl grid place-items-center mb-5"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}>
+            <Play className="h-8 w-8 text-white fill-white" />
           </div>
-        </div>
-      ) : (
-        <div ref={containerRef} className="flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-none"
-          style={{ scrollbarWidth: "none" }}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            const idx = Math.round(el.scrollTop / el.clientHeight);
-            setActiveIndex(idx);
-          }}>
-          {reels.map((reel, i) => (
-            <ReelCard
-              key={reel.id}
-              reel={reel}
-              profile={profiles[reel.user_id]}
-              likes={likes.filter((l) => l.reel_id === reel.id)}
-              meId={user.id}
-              isActive={i === activeIndex}
-            />
-          ))}
+          <h2 className="text-xl font-bold text-white mb-2">No reels yet</h2>
+          <p className="text-sm text-white/50 mb-6">Be the first to share a reel.</p>
+          <Button onClick={() => setUploadOpen(true)} className="gap-2" style={{ background: "var(--gradient-primary)" }}>
+            <Plus className="h-4 w-4" /> Upload reel
+          </Button>
         </div>
       )}
 
-      {/* Up/down nav */}
-      {reels.length > 1 && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
-          <button onClick={() => setActiveIndex((i) => Math.max(i - 1, 0))}
-            disabled={activeIndex === 0}
-            className="h-8 w-8 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all">
-            <ChevronUp className="h-4 w-4 text-white" />
-          </button>
-          <button onClick={() => setActiveIndex((i) => Math.min(i + 1, reels.length - 1))}
-            disabled={activeIndex === reels.length - 1}
-            className="h-8 w-8 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all">
-            <ChevronDown className="h-4 w-4 text-white" />
-          </button>
-        </div>
+      {/* ── Feed: 9:16 container, centred ── */}
+      {reels.length > 0 && (
+        <>
+          {/*
+           * Width is clamped so the 9:16 frame never exceeds the viewport height.
+           * calc(100dvh * 9/16) = the exact width for a full-height 9:16 video.
+           * On mobile (portrait) this naturally fills the full width.
+           */}
+          <div
+            ref={containerRef}
+            className="relative overflow-y-scroll snap-y snap-mandatory"
+            style={{
+              /* 9:16 ratio: width = height × (9/16) */
+              width: "min(100vw, calc(100dvh * 9 / 16))",
+              height: "100dvh",
+              scrollbarWidth: "none",
+            }}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const idx = Math.round(el.scrollTop / el.clientHeight);
+              setActiveIndex(idx);
+            }}
+          >
+            {reels.map((reel, i) => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                profile={profiles[reel.user_id]}
+                likes={likes.filter((l) => l.reel_id === reel.id)}
+                meId={user.id}
+                isActive={i === activeIndex}
+              />
+            ))}
+          </div>
+
+          {/* Up / down nav — sits just outside the reel frame on desktop */}
+          {reels.length > 1 && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2
+                            sm:right-[calc(50%-min(50vw,calc(100dvh*9/32))-44px)]">
+              <button
+                onClick={() => setActiveIndex((i) => Math.max(i - 1, 0))}
+                disabled={activeIndex === 0}
+                className="h-9 w-9 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all"
+              >
+                <ChevronUp className="h-4 w-4 text-white" />
+              </button>
+              <button
+                onClick={() => setActiveIndex((i) => Math.min(i + 1, reels.length - 1))}
+                disabled={activeIndex === reels.length - 1}
+                className="h-9 w-9 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all"
+              >
+                <ChevronDown className="h-4 w-4 text-white" />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Scroll to active */}
       <ScrollToActive containerRef={containerRef} index={activeIndex} />
-
-      {/* Upload dialog */}
       <UploadReelDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
     </div>
   );
@@ -222,7 +242,6 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
   const liked = likes.some((l) => l.user_id === meId);
   const likeCount = likes.length;
 
-  // Play/pause when active changes
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
@@ -259,15 +278,23 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
   }
 
   return (
-    <div className="relative h-[100dvh] w-full snap-start snap-always flex items-center justify-center bg-black overflow-hidden">
-      {/* Video */}
+    /*
+     * Each slide is exactly 100dvh tall and fills the scroll container width
+     * (which is already clamped to 9:16). snap-start keeps scroll snapping crisp.
+     */
+    <div
+      className="relative snap-start snap-always flex-shrink-0 overflow-hidden bg-black"
+      style={{ width: "100%", height: "100dvh" }}
+    >
+      {/* Video — fills the full 9:16 frame */}
       <video
         ref={videoRef}
         src={reel.video_url}
         loop
         muted={muted}
         playsInline
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full"
+        style={{ objectFit: "cover", objectPosition: "center" }}
         onClick={togglePlay}
         onTimeUpdate={(e) => {
           const vid = e.currentTarget;
@@ -275,75 +302,95 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
         }}
       />
 
-      {/* Dark gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/20 pointer-events-none" />
+      {/* Dark gradient — bottom-heavy like Instagram */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.25) 100%)",
+        }}
+      />
 
-      {/* Play indicator */}
+      {/* Progress bar — thin line at very top */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/20 z-10">
+        <div
+          className="h-full transition-all duration-100"
+          style={{ width: `${progress}%`, background: "var(--gradient-primary)" }}
+        />
+      </div>
+
+      {/* Play/pause overlay — only shows briefly */}
       {!playing && (
-        <div className="absolute inset-0 grid place-items-center pointer-events-none">
-          <div className="h-16 w-16 rounded-full grid place-items-center bg-black/40 backdrop-blur-sm">
+        <div className="absolute inset-0 grid place-items-center pointer-events-none z-10">
+          <div className="h-16 w-16 rounded-full grid place-items-center bg-black/50 backdrop-blur-sm">
             <Play className="h-8 w-8 text-white fill-white ml-1" />
           </div>
         </div>
       )}
 
-      {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/20">
-        <div className="h-full bg-white transition-all duration-100" style={{ width: `${progress}%` }} />
-      </div>
-
-      {/* Bottom info */}
-      <div className="absolute bottom-6 left-4 right-16 z-10">
-        <div className="flex items-center gap-2 mb-3">
-          <Avatar className="h-9 w-9 ring-2 ring-white/30">
+      {/* ── Bottom info bar ── */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-6 pt-16"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
+        {/* User info */}
+        <div className="flex items-center gap-2.5 mb-3">
+          <Avatar className="h-9 w-9 ring-2 ring-white/40 shrink-0">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
             <AvatarFallback className="text-xs font-bold bg-primary/30 text-white">
               {initials(profile?.username ?? "?")}
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="text-white font-semibold text-sm leading-tight">
+            <div className="text-white font-semibold text-sm leading-tight drop-shadow">
               {profile?.display_name || profile?.username || "Unknown"}
             </div>
-            <div className="text-white/50 text-xs">@{profile?.username} · {timeAgo(reel.created_at)}</div>
+            <div className="text-white/60 text-xs">@{profile?.username} · {timeAgo(reel.created_at)}</div>
           </div>
         </div>
+        {/* Caption */}
         {reel.caption && (
-          <p className="text-white text-sm leading-relaxed line-clamp-2">{reel.caption}</p>
+          <p className="text-white text-sm leading-relaxed line-clamp-2 drop-shadow">{reel.caption}</p>
         )}
       </div>
 
-      {/* Right action rail */}
+      {/* ── Right action rail ── */}
       <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-5">
         {/* Like */}
         <button onClick={toggleLike} className="flex flex-col items-center gap-1 group">
-          <div className={cn("h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90",
-            liked ? "bg-red-500/20" : "bg-black/30 hover:bg-black/50")}>
+          <div className={cn(
+            "h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90",
+            liked ? "bg-red-500/20" : "bg-black/40 hover:bg-black/60"
+          )}>
             <Heart className={cn("h-6 w-6 transition-all", liked ? "fill-red-500 text-red-500 scale-110" : "text-white")} />
           </div>
-          <span className="text-white text-xs font-medium">{likeCount}</span>
+          <span className="text-white text-xs font-semibold drop-shadow">{likeCount}</span>
         </button>
 
         {/* Comments */}
         <button onClick={() => setCommentsOpen(true)} className="flex flex-col items-center gap-1">
-          <div className="h-11 w-11 rounded-full grid place-items-center bg-black/30 hover:bg-black/50 transition-all">
+          <div className="h-11 w-11 rounded-full grid place-items-center bg-black/40 hover:bg-black/60 transition-all">
             <MessageCircle className="h-6 w-6 text-white" />
           </div>
-          <span className="text-white text-xs font-medium">
+          <span className="text-white text-xs font-semibold drop-shadow">
             <CommentCount reelId={reel.id} />
           </span>
         </button>
 
         {/* Mute */}
-        <button onClick={() => setMuted((v) => !v)}
-          className="h-11 w-11 rounded-full grid place-items-center bg-black/30 hover:bg-black/50 transition-all">
-          {muted ? <VolumeX className="h-6 w-6 text-white" /> : <Volume2 className="h-6 w-6 text-white" />}
+        <button
+          onClick={() => setMuted((v) => !v)}
+          className="h-11 w-11 rounded-full grid place-items-center bg-black/40 hover:bg-black/60 transition-all"
+        >
+          {muted
+            ? <VolumeX className="h-6 w-6 text-white" />
+            : <Volume2 className="h-6 w-6 text-white" />
+          }
         </button>
 
         {/* Delete (own reel) */}
         {reel.user_id === meId && (
-          <button onClick={deleteReel}
-            className="h-11 w-11 rounded-full grid place-items-center bg-black/30 hover:bg-red-500/30 transition-all">
+          <button
+            onClick={deleteReel}
+            className="h-11 w-11 rounded-full grid place-items-center bg-black/40 hover:bg-red-500/30 transition-all"
+          >
             <Trash2 className="h-5 w-5 text-white/70 hover:text-red-400" />
           </button>
         )}
@@ -586,11 +633,12 @@ function UploadReelDialog({ open, onOpenChange, userId }: {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Preview */}
-            <div className="relative rounded-2xl overflow-hidden aspect-[9/16] max-h-[50dvh] bg-black">
+            {/* Preview — true 9:16 */}
+            <div className="relative rounded-2xl overflow-hidden mx-auto bg-black"
+              style={{ aspectRatio: "9/16", maxHeight: "55dvh", width: "auto" }}>
               <video src={preview ?? undefined} className="w-full h-full object-cover" controls muted />
               <button onClick={reset}
-                className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/50 hover:bg-black/70 transition-colors">
+                className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-colors">
                 <X className="h-4 w-4 text-white" />
               </button>
             </div>
