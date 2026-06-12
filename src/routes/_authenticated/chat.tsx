@@ -814,42 +814,40 @@ function ChatInputBar({ value, onChange, onSend, placeholder, sending, onSticker
   );
 }
 
-// ─── Read receipt ticks ───────────────────────────────────────
-/**
- * ✓  = sent (single grey tick)
- * ✓✓ = seen (double violet ticks)
- * Only shown on your own messages in DMs.
- */
-function ReadTicks({ read }: { read: boolean }) {
+// ─── Read receipt tick ────────────────────────────────────────
+function ReadTick({ readAt }: { readAt: string | null | undefined }) {
+  // Only shown on sent (mine) messages
+  if (readAt) {
+    // Double tick — seen (blue/teal)
+    return (
+      <span className="inline-flex items-center shrink-0 ml-1" title="Seen">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden>
+          {/* First tick */}
+          <path d="M1 5l3 3 5-6" stroke="oklch(0.72 0.18 200)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Second tick (offset right) */}
+          <path d="M5 5l3 3 5-6" stroke="oklch(0.72 0.18 200)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  // Single tick — delivered (muted white)
   return (
-    <span
-      className="flex items-center shrink-0 ml-1 mb-0.5"
-      aria-label={read ? "Seen" : "Sent"}
-      title={read ? "Seen" : "Sent"}
-    >
-      {/* First tick */}
-      <svg viewBox="0 0 10 8" className="w-[10px] h-[8px]" fill="none">
-        <path d="M1 4l3 3 5-6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
-          stroke={read ? "oklch(0.75 0.18 280)" : "oklch(0.60 0.01 268)"} />
-      </svg>
-      {/* Second tick (seen only) */}
-      <svg viewBox="0 0 10 8" className="-ml-1 w-[10px] h-[8px]" fill="none">
-        <path d="M1 4l3 3 5-6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
-          stroke={read ? "oklch(0.75 0.18 280)" : "oklch(0.60 0.01 268 / 0)"} />
+    <span className="inline-flex items-center shrink-0 ml-1" title="Sent">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+        <path d="M1 5l3 3 5-6" stroke="oklch(0.80 0 0 / 0.55)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
   );
 }
 
 // ─── Message bubble ───────────────────────────────────────────
-function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt }: {
+function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, isLast }: {
   content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
-  /** Pass read_at string (or null) only for DM messages sent by me */
-  readAt?: string | null;
+  readAt?: string | null; isLast?: boolean;
 }) {
   const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
-  const showTicks = mine && readAt !== undefined; // only DM sender sees ticks
-  const isRead = !!readAt;
+  // Show tick only on last sent message in a DM (not in group chats)
+  const showTick = mine && isLast && readAt !== undefined;
 
   return (
     <li className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
@@ -863,31 +861,25 @@ function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt }:
           </button>
         )}
         {isSticker ? (
-          <div className="flex flex-col items-end">
+          <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
             <span className="text-4xl leading-none select-none">{content}</span>
-            {showTicks && (
-              <div className="flex justify-end mt-0.5">
-                <ReadTicks read={isRead} />
-              </div>
+            {showTick && (
+              <div className="mt-0.5"><ReadTick readAt={readAt} /></div>
             )}
           </div>
         ) : (
-          <div
-            className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
+          <div className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
             style={{
               background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
-              borderRadius: mine
-                ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px")
-                : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
+              borderRadius: mine ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px") : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
               border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
               boxShadow: mine ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)" : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
-            }}
-          >
-            {/* Content + ticks inline at the end */}
-            <span>{content}</span>
-            {showTicks && (
-              <span className="inline-flex items-end ml-2 translate-y-[1px]">
-                <ReadTicks read={isRead} />
+            }}>
+            {/* Content + tick inline at bottom-right */}
+            {content}
+            {showTick && (
+              <span className="inline-flex items-end ml-2 -mb-0.5 align-bottom">
+                <ReadTick readAt={readAt} />
               </span>
             )}
           </div>
@@ -1024,9 +1016,14 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
               const mine = m.sender_id === meId;
               const prev = arr[i - 1];
               const grouped = !!(prev && prev.sender_id === m.sender_id && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000));
-              return <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
-                onDelete={mine ? () => deleteMessage(m.id) : undefined}
-                readAt={mine ? m.read_at : undefined} />;
+              // isLast = last message sent by me (show tick only on the most recent sent msg)
+              const isLast = mine && !arr.slice(i + 1).some((nm) => nm.sender_id === meId);
+              return (
+                <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
+                  readAt={mine ? m.read_at : undefined}
+                  isLast={isLast}
+                  onDelete={mine ? () => deleteMessage(m.id) : undefined} />
+              );
             })}
           </ul>
         )}
