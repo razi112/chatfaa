@@ -42,6 +42,8 @@ interface Props {
 
 export function NotificationBell({ meId }: Props) {
   const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
   const { data: notifications = [], isLoading } = useNotifications(meId);
@@ -58,14 +60,10 @@ export function NotificationBell({ meId }: Props) {
     }
   }, [open, unreadCount, meId, qc]);
 
-  // Realtime — keep the channel in a ref so we can cleanly tear it down
-  // before creating a new one. React Strict Mode (and HMR) can fire the
-  // cleanup + setup twice; without an explicit removal the Supabase client
-  // hangs onto the old subscribed channel and throws when .on() is called again.
+  // Realtime subscription — safely handles strict-mode double-mount
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    // Tear down any existing channel synchronously before creating a new one
     const existing = channelRef.current;
     if (existing) {
       channelRef.current = null;
@@ -73,29 +71,24 @@ export function NotificationBell({ meId }: Props) {
     }
 
     let active = true;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
 
     try {
-      ch = supabase.channel(`rt-notifs-${meId}`);
+      const ch = supabase.channel(`rt-notifs-${meId}`);
       channelRef.current = ch;
 
       ch
         .on(
           "postgres_changes" as any,
           { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${meId}` },
-          () => {
-            if (active) qc.invalidateQueries({ queryKey: ["notifications", meId] });
-          }
+          () => { if (active) qc.invalidateQueries({ queryKey: ["notifications", meId] }); }
         )
         .subscribe((status: string) => {
-          // CHANNEL_ERROR means Postgres realtime isn't enabled — fail silently
           if (status === "CHANNEL_ERROR") {
-            console.warn("[NotificationBell] Realtime not available, falling back to polling");
+            console.warn("[NotificationBell] Realtime unavailable");
           }
         });
     } catch (err) {
-      // Swallow the error so it never propagates to the React error boundary
-      console.warn("[NotificationBell] Could not subscribe to realtime channel:", err);
+      console.warn("[NotificationBell] Could not subscribe:", err);
     }
 
     return () => {
@@ -106,20 +99,73 @@ export function NotificationBell({ meId }: Props) {
     };
   }, [meId, qc]);
 
-  // Click outside to close
+  // Calculate fixed position so the panel is never clipped by parent overflow
+  function toggleOpen() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const panelWidth = 320;
+      const panelMaxHeight = 440;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const gap = 8;
+
+      // Horizontal: try to left-align with button, clamp within viewport
+      let left = rect.left;
+      if (left + panelWidth > viewportWidth - gap) left = viewportWidth - panelWidth - gap;
+      if (left < gap) left = gap;
+
+      // Vertical: open downward if enough room, otherwise open upward
+      const spaceBelow = viewportHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const openUpward = spaceBelow < Math.min(panelMaxHeight, 200) && spaceAbove > spaceBelow;
+
+      const top = openUpward
+        ? Math.max(gap, rect.top - Math.min(panelMaxHeight, spaceAbove) - gap)
+        : rect.bottom + gap;
+
+      const maxHeight = openUpward
+        ? Math.min(panelMaxHeight, spaceAbove)
+        : Math.min(panelMaxHeight, spaceBelow);
+
+      setPanelPos({ top, left, maxHeight });
+    }
+    setOpen(true);
+  }
+
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handle(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const clickedButton = buttonRef.current?.contains(target);
+      const clickedPanel = panelRef.current?.contains(target);
+      if (!clickedButton && !clickedPanel) setOpen(false);
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
+  // Close on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
   return (
-    <div className="relative" ref={panelRef}>
+    <>
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={buttonRef}
+        onClick={toggleOpen}
         className={cn(
           "relative grid h-9 w-9 place-items-center rounded-xl transition-all",
           open
@@ -127,6 +173,7 @@ export function NotificationBell({ meId }: Props) {
             : "text-muted-foreground hover:text-foreground hover:bg-white/5"
         )}
         aria-label="Notifications"
+        aria-expanded={open}
       >
         <Bell className="h-[17px] w-[17px]" />
         {unreadCount > 0 && (
@@ -139,25 +186,40 @@ export function NotificationBell({ meId }: Props) {
         )}
       </button>
 
-      {open && (
+      {/* Panel rendered via portal-like fixed positioning — never clipped */}
+      {open && panelPos && (
         <div
-          className="absolute right-0 top-11 z-50 w-80 rounded-2xl shadow-2xl overflow-hidden"
+          ref={panelRef}
+          className="fixed z-[9999] w-80 rounded-2xl shadow-2xl overflow-hidden"
           style={{
+            top: panelPos.top,
+            left: panelPos.left,
             background: "oklch(0.15 0.015 268 / 0.98)",
             border: "1px solid oklch(0.26 0.018 268)",
             backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            maxHeight: panelPos.maxHeight,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "oklch(0.22 0.016 268)" }}>
-            <h3 className="font-semibold text-sm">Notifications</h3>
-            <button onClick={() => setOpen(false)}>
-              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          <div
+            className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+            style={{ borderColor: "oklch(0.22 0.016 268)" }}
+          >
+            <h3 className="font-semibold text-sm text-foreground">Notifications</h3>
+            <button
+              onClick={() => setOpen(false)}
+              className="h-6 w-6 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
+              aria-label="Close notifications"
+            >
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
 
           {/* List */}
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="overflow-y-auto flex-1">
             {isLoading && (
               <div className="flex justify-center py-8">
                 <div className="h-5 w-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
@@ -173,14 +235,14 @@ export function NotificationBell({ meId }: Props) {
               <NotifRow
                 key={n.id}
                 notif={n}
-                onAccept={n.type === "follow_request" ? () => acceptRequest.mutate(n.actor_id) : undefined}
-                onDecline={n.type === "follow_request" ? () => declineRequest.mutate(n.actor_id) : undefined}
+                onAccept={n.type === "follow_request" ? () => { acceptRequest.mutate(n.actor_id); } : undefined}
+                onDecline={n.type === "follow_request" ? () => { declineRequest.mutate(n.actor_id); } : undefined}
               />
             ))}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -209,13 +271,19 @@ function NotifRow({
       <div className="relative shrink-0">
         <Avatar className="h-9 w-9">
           <AvatarImage src={actor?.avatar_url ?? undefined} />
-          <AvatarFallback className="text-[10px] font-bold" style={{ background: "var(--gradient-primary)", color: "white" }}>
+          <AvatarFallback
+            className="text-[10px] font-bold"
+            style={{ background: "var(--gradient-primary)", color: "white" }}
+          >
             {initials(actor?.username ?? "?")}
           </AvatarFallback>
         </Avatar>
         <div
           className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full grid place-items-center"
-          style={{ background: "oklch(0.20 0.018 268)", border: "1px solid oklch(0.28 0.018 268)" }}
+          style={{
+            background: "oklch(0.20 0.018 268)",
+            border: "1px solid oklch(0.28 0.018 268)",
+          }}
         >
           <Icon className="h-2.5 w-2.5 text-primary" />
         </div>
@@ -223,7 +291,7 @@ function NotifRow({
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-xs leading-relaxed">
+        <p className="text-xs leading-relaxed text-foreground">
           <span className="font-semibold">@{actor?.username ?? "user"}</span>
           {" "}{label}
         </p>
@@ -251,7 +319,10 @@ function NotifRow({
 
       {/* Unread dot */}
       {!notif.read && (
-        <div className="h-2 w-2 rounded-full mt-1.5 shrink-0" style={{ background: "oklch(0.65 0.22 280)" }} />
+        <div
+          className="h-2 w-2 rounded-full mt-1.5 shrink-0"
+          style={{ background: "oklch(0.65 0.22 280)" }}
+        />
       )}
     </div>
   );
