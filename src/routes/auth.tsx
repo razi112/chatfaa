@@ -42,12 +42,16 @@ function useUsernameCheck(value: string) {
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) { setStatus("invalid"); return; }
     setStatus("checking");
     const timer = setTimeout(async () => {
+      // Use a SECURITY DEFINER RPC so anon callers can reliably check
+      // existence regardless of RLS policies on the profiles table.
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("username", trimmed)
-        .maybeSingle();
-      if (error) { setStatus("idle"); return; }
+        .rpc("check_username_exists", { _username: trimmed });
+      if (error) {
+        console.error("Username check error:", error);
+        setStatus("idle");
+        return;
+      }
+      // data is boolean: true = username exists (taken), false = free
       setStatus(data ? "taken" : "available");
     }, 400);
     return () => clearTimeout(timer);

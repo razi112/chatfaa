@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Heart, MessageCircle, Send, Plus, X, Play, Upload, Loader2,
-  ImagePlus, Home, Video,
+  ImagePlus, Home, Video, Users,
   MoreHorizontal, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,11 +62,14 @@ function FeedPage() {
 
   const postsQ = useQuery({
     queryKey: ["feed-posts"],
+    retry: false,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("posts").select("*").order("created_at", { ascending: false }).limit(60);
-      if (error) throw error;
-      return data as Post[];
+      try {
+        const { data, error } = await (supabase as any)
+          .from("posts").select("*").order("created_at", { ascending: false }).limit(60);
+        if (error) return [] as Post[];
+        return data as Post[];
+      } catch { return [] as Post[]; }
     },
   });
 
@@ -73,21 +77,27 @@ function FeedPage() {
   const profilesQ = useQuery({
     queryKey: ["feed-profiles", ownerIds],
     enabled: ownerIds.length > 0,
+    retry: false,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").in("id", ownerIds);
-      if (error) throw error;
-      const map: Record<string, Profile> = {};
-      (data as Profile[]).forEach((p) => { map[p.id] = p; });
-      return map;
+      try {
+        const { data, error } = await supabase.from("profiles").select("*").in("id", ownerIds);
+        if (error) return {} as Record<string, Profile>;
+        const map: Record<string, Profile> = {};
+        (data as Profile[]).forEach((p) => { map[p.id] = p; });
+        return map;
+      } catch { return {} as Record<string, Profile>; }
     },
   });
 
   const likesQ = useQuery({
     queryKey: ["feed-likes"],
+    retry: false,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("post_likes").select("*");
-      if (error) throw error;
-      return data as PostLike[];
+      try {
+        const { data, error } = await (supabase as any).from("post_likes").select("*");
+        if (error) return [] as PostLike[];
+        return data as PostLike[];
+      } catch { return [] as PostLike[]; }
     },
   });
 
@@ -132,10 +142,15 @@ function FeedPage() {
         <NavItem to="/feed" icon={Home} label="Feed" active />
         <NavItem to="/chat" icon={MessageCircle} label="Chat" />
         <NavItem to="/reels" icon={Play} label="Reels" />
+        <NavItem to="/people" icon={Users} label="People" />
         <NavItem to="/profile" icon={AvatarIcon} label="Profile" />
 
-        {/* Upload button */}
-        <div className="mt-auto px-2 pb-2">
+        {/* Upload button + notification bell */}
+        <div className="mt-auto px-2 pb-2 space-y-1">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <NotificationBell meId={user.id} />
+            <span className="hidden xl:block text-xs text-muted-foreground">Notifications</span>
+          </div>
           <button
             onClick={() => setUploadOpen(true)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
@@ -156,10 +171,16 @@ function FeedPage() {
         <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-4 h-14 border-b"
           style={{ background: "oklch(0.11 0.015 270 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
           <span className="font-bold text-base tracking-tight">chatfaa</span>
-          <button onClick={() => setUploadOpen(true)}
-            className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
-            <Plus className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link to="/people" className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+              <Users className="h-5 w-5" />
+            </Link>
+            <NotificationBell meId={user.id} />
+            <button onClick={() => setUploadOpen(true)}
+              className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {/* Stories / post button row */}
@@ -212,6 +233,7 @@ function FeedPage() {
         style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
         {[
           { to: "/feed", icon: Home, label: "Feed", active: true },
+          { to: "/people", icon: Users, label: "People", active: false },
           { to: "/chat", icon: MessageCircle, label: "Chat", active: false },
           { to: "/reels", icon: Play, label: "Reels", active: false },
           { to: "/profile", icon: AvatarIconMobile, label: "Profile", active: false },

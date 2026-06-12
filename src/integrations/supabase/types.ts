@@ -20,6 +20,56 @@ export type Database = {
         Update: { blocker_id?: string; blocked_id?: string; created_at?: string }
         Relationships: []
       }
+      follows: {
+        Row: {
+          id: string
+          follower_id: string
+          following_id: string
+          status: Database["public"]["Enums"]["follow_status"]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          follower_id: string
+          following_id: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          follower_id?: string
+          following_id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          actor_id: string
+          type: Database["public"]["Enums"]["notif_type"]
+          entity_id: string | null
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          actor_id: string
+          type: Database["public"]["Enums"]["notif_type"]
+          entity_id?: string | null
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          read?: boolean
+        }
+        Relationships: []
+      }
       reels: {
         Row: { id: string; user_id: string; video_url: string; thumbnail_url: string | null; caption: string | null; created_at: string; updated_at: string }
         Insert: { id?: string; user_id: string; video_url: string; thumbnail_url?: string | null; caption?: string | null; created_at?: string; updated_at?: string }
@@ -189,7 +239,9 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
+          email: string | null
           id: string
+          is_private: boolean
           last_seen: string
           status: string
           updated_at: string
@@ -200,7 +252,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           id: string
+          is_private?: boolean
           last_seen?: string
           status?: string
           updated_at?: string
@@ -211,7 +265,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           id?: string
+          is_private?: boolean
           last_seen?: string
           status?: string
           updated_at?: string
@@ -224,6 +280,61 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_username_exists: { Args: { _username: string }; Returns: boolean }
+      follow_user: { Args: { _target: string }; Returns: string }
+      unfollow_user: { Args: { _target: string }; Returns: void }
+      accept_follow_request: { Args: { _follower: string }; Returns: void }
+      decline_follow_request: { Args: { _follower: string }; Returns: void }
+      remove_follower: { Args: { _follower: string }; Returns: void }
+      get_follow_counts: {
+        Args: { _user_id: string }
+        Returns: Array<{ followers: number; following: number }>
+      }
+      get_follow_relationship: {
+        Args: { _target: string }
+        Returns: Array<{
+          i_follow: string
+          they_follow: string
+          is_mutual: boolean
+          is_blocked: boolean
+        }>
+      }
+      get_followers: {
+        Args: { _user_id: string; _limit?: number; _offset?: number }
+        Returns: Array<{
+          id: string; username: string; display_name: string | null
+          avatar_url: string | null; is_mutual: boolean
+        }>
+      }
+      get_following: {
+        Args: { _user_id: string; _limit?: number; _offset?: number }
+        Returns: Array<{
+          id: string; username: string; display_name: string | null
+          avatar_url: string | null; is_mutual: boolean
+        }>
+      }
+      get_follow_requests: {
+        Args: Record<string, never>
+        Returns: Array<{
+          id: string; username: string; display_name: string | null
+          avatar_url: string | null; requested_at: string
+        }>
+      }
+      search_users: {
+        Args: { _query: string; _limit?: number }
+        Returns: Array<{
+          id: string; username: string; display_name: string | null
+          avatar_url: string | null; is_private: boolean; follow_status: string
+        }>
+      }
+      get_suggested_users: {
+        Args: { _limit?: number }
+        Returns: Array<{
+          id: string; username: string; display_name: string | null
+          avatar_url: string | null; is_private: boolean; mutual_count: number
+        }>
+      }
+      mark_notifications_read: { Args: Record<string, never>; Returns: void }
       are_friends: { Args: { a: string; b: string }; Returns: boolean }
       block_user: { Args: { _target: string }; Returns: void }
       unblock_user: { Args: { _target: string }; Returns: void }
@@ -262,6 +373,8 @@ export type Database = {
     Enums: {
       friendship_status: "pending" | "accepted" | "rejected"
       group_role: "admin" | "member"
+      follow_status: "pending" | "accepted"
+      notif_type: "follow_request" | "follow_accept" | "new_follower" | "post_like" | "post_comment" | "reel_like"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -391,6 +504,8 @@ export const Constants = {
     Enums: {
       friendship_status: ["pending", "accepted", "rejected"],
       group_role: ["admin", "member"],
+      follow_status: ["pending", "accepted"],
+      notif_type: ["follow_request", "follow_accept", "new_follower", "post_like", "post_comment", "reel_like"],
     },
   },
 } as const

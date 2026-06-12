@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedReelsRouteImport } from './routes/_authenticated/reels'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 
@@ -41,6 +42,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFeedRoute = AuthenticatedFeedRouteImport.update({
   id: '/feed',
   path: '/feed',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/chat': typeof AuthenticatedChatRoute
   '/feed': typeof AuthenticatedFeedRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reels': typeof AuthenticatedReelsRoute
 }
@@ -65,6 +72,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/chat': typeof AuthenticatedChatRoute
   '/feed': typeof AuthenticatedFeedRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reels': typeof AuthenticatedReelsRoute
 }
@@ -75,14 +83,22 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
+  '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reels': typeof AuthenticatedReelsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/chat' | '/feed' | '/profile' | '/reels'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/feed'
+    | '/people'
+    | '/profile'
+    | '/reels'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chat' | '/feed' | '/profile' | '/reels'
+  to: '/' | '/auth' | '/chat' | '/feed' | '/people' | '/profile' | '/reels'
   id:
     | '__root__'
     | '/'
@@ -90,6 +106,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/chat'
     | '/_authenticated/feed'
+    | '/_authenticated/people'
     | '/_authenticated/profile'
     | '/_authenticated/reels'
   fileRoutesById: FileRoutesById
@@ -137,6 +154,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/people': {
+      id: '/_authenticated/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof AuthenticatedPeopleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/feed': {
       id: '/_authenticated/feed'
       path: '/feed'
@@ -157,6 +181,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedFeedRoute: typeof AuthenticatedFeedRoute
+  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReelsRoute: typeof AuthenticatedReelsRoute
 }
@@ -164,6 +189,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedFeedRoute: AuthenticatedFeedRoute,
+  AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReelsRoute: AuthenticatedReelsRoute,
 }
