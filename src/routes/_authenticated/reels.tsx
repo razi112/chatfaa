@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Heart, MessageCircle, Send, Plus, X, Play, Pause,
   Volume2, VolumeX, Upload, Loader2, Trash2, ChevronUp, ChevronDown,
-  ArrowLeft,
+  ArrowLeft, Video, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -57,6 +57,7 @@ function ReelsPage() {
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const reelsQ = useQuery({
@@ -203,6 +204,68 @@ function ReelsPage() {
         </>
       )}
 
+      {/* ── Left Sidebar rail (mirrors chat sidebar) ── */}
+      <aside
+        className="absolute left-0 top-0 h-full z-30 flex flex-col items-center py-4 gap-2 border-r overflow-hidden transition-all duration-300"
+        style={{
+          width: sidebarOpen ? "60px" : "0px",
+          opacity: sidebarOpen ? 1 : 0,
+          borderColor: "oklch(0.18 0.016 268)",
+          background: "var(--color-sidebar)",
+          pointerEvents: sidebarOpen ? "auto" : "none",
+        }}
+      >
+        {/* App icon */}
+        <div
+          className="grid h-9 w-9 place-items-center rounded-2xl mb-2 shadow-[0_4px_16px_-4px_oklch(0.65_0.22_280/0.5)] shrink-0"
+          style={{ background: "var(--gradient-primary)" }}
+        >
+          <Play className="h-4 w-4 text-white fill-white" />
+        </div>
+
+        {/* Nav icons */}
+        <div className="flex flex-col gap-1 flex-1">
+          {/* Chats — navigate back */}
+          <Link to="/chat" aria-label="Chats" title="Chats">
+            <button className="relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent">
+              <MessageCircle className="h-[17px] w-[17px]" />
+            </button>
+          </Link>
+
+          {/* Reels — current page (active) */}
+          <button
+            aria-label="Reels" title="Reels"
+            className="relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-200 text-white shadow-[0_4px_16px_-4px_oklch(0.65_0.22_280/0.5)]"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Video className="h-[17px] w-[17px]" />
+          </button>
+
+          {/* Upload reel */}
+          <button
+            onClick={() => setUploadOpen(true)}
+            aria-label="Upload reel" title="Upload reel"
+            className="relative grid h-9 w-9 place-items-center rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          >
+            <Upload className="h-[17px] w-[17px]" />
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Sidebar toggle button ── */}
+      <button
+        onClick={() => setSidebarOpen((v) => !v)}
+        aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        className="absolute z-40 top-4 flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 text-white/70 hover:text-white hover:bg-white/15"
+        style={{ left: sidebarOpen ? "68px" : "8px" }}
+      >
+        {sidebarOpen
+          ? <PanelLeftClose className="h-4 w-4" />
+          : <PanelLeftOpen className="h-4 w-4" />
+        }
+      </button>
+
       <ScrollToActive containerRef={containerRef} index={activeIndex} />
       <UploadReelDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
     </div>
@@ -231,6 +294,10 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
   const [progress, setProgress] = useState(0);
   const [commentsOpen, setCommentsOpen] = useState(false);
 
+  // Double-tap like
+  const lastTapRef = useRef<number>(0);
+  const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
+
   const liked = likes.some((l) => l.user_id === meId);
   const likeCount = likes.length;
 
@@ -251,6 +318,31 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
     if (!vid) return;
     if (playing) { vid.pause(); setPlaying(false); }
     else { vid.play().then(() => setPlaying(true)).catch(() => {}); }
+  }
+
+  function handleTap(e: React.MouseEvent<HTMLDivElement>) {
+    const now = Date.now();
+    const delta = now - lastTapRef.current;
+    if (delta < 300 && delta > 0) {
+      // Double tap — like if not already liked
+      if (!liked) {
+        supabase.from("reel_likes").insert({ reel_id: reel.id, user_id: meId })
+          .then(() => qc.invalidateQueries({ queryKey: ["reel-likes"] }));
+      }
+      // Show heart burst at tap position
+      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+      setHeartBurst({ x: e.clientX - rect.left, y: e.clientY - rect.top, id: now });
+      setTimeout(() => setHeartBurst(null), 900);
+    } else {
+      // Single tap — toggle play after short delay (cancel if double tap)
+      const t = window.setTimeout(() => {
+        if (Date.now() - now >= 280) togglePlay();
+      }, 300);
+      // store timeout so double tap can implicitly cancel it
+      (handleTap as any)._t && clearTimeout((handleTap as any)._t);
+      (handleTap as any)._t = t;
+    }
+    lastTapRef.current = now;
   }
 
   async function toggleLike() {
@@ -277,6 +369,7 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
     <div
       className="relative snap-start snap-always flex-shrink-0 overflow-hidden bg-black"
       style={{ width: "100%", height: "100dvh" }}
+      onClick={handleTap}
     >
       {/* Video — fills the full 9:16 frame */}
       <video
@@ -287,12 +380,43 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
         playsInline
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: "cover", objectPosition: "center" }}
-        onClick={togglePlay}
         onTimeUpdate={(e) => {
           const vid = e.currentTarget;
           if (vid.duration) setProgress((vid.currentTime / vid.duration) * 100);
         }}
       />
+
+      {/* Heart burst on double-tap */}
+      {heartBurst && (
+        <div
+          key={heartBurst.id}
+          className="absolute pointer-events-none z-20"
+          style={{
+            left: heartBurst.x,
+            top: heartBurst.y,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <svg
+            viewBox="0 0 96 96"
+            className="h-24 w-24 animate-heart-burst"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient id="ig-heart-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%"   stopColor="#f9622e" />
+                <stop offset="40%"  stopColor="#e6337e" />
+                <stop offset="75%"  stopColor="#c13fc4" />
+                <stop offset="100%" stopColor="#7b4fe0" />
+              </linearGradient>
+            </defs>
+            <path
+              fill="url(#ig-heart-grad)"
+              d="M48 82 C48 82 8 56 8 30 C8 18.954 16.954 10 28 10 C34.627 10 40.556 13.19 44.5 18.12 L48 22.5 L51.5 18.12 C55.444 13.19 61.373 10 68 10 C79.046 10 88 18.954 88 30 C88 56 48 82 48 82Z"
+            />
+          </svg>
+        </div>
+      )}
 
       {/* Dark gradient — bottom-heavy like Instagram */}
       <div
@@ -347,10 +471,7 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
       <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-5">
         {/* Like */}
         <button onClick={toggleLike} className="flex flex-col items-center gap-1 group">
-          <div className={cn(
-            "h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90",
-            liked ? "bg-red-500/20" : "bg-black/40 hover:bg-black/60"
-          )}>
+          <div className="h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90">
             <Heart className={cn("h-6 w-6 transition-all", liked ? "fill-red-500 text-red-500 scale-110" : "text-white")} />
           </div>
           <span className="text-white text-xs font-semibold drop-shadow">{likeCount}</span>
