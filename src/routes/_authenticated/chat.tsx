@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
-  Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2,
+  Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -976,6 +976,38 @@ function GroupInfoDialog({
   const memberIds = new Set(memberProfiles.map((m) => m.member.user_id));
   const addable = friends.filter((f) => !memberIds.has(f.id));
 
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(group.name);
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => { setNameDraft(group.name); setEditingName(false); }, [group.id, group.name, open]);
+
+  async function saveName() {
+    const next = nameDraft.trim();
+    if (!next || next === group.name) { setEditingName(false); return; }
+    setSavingName(true);
+    const { error } = await supabase.from("groups")
+      .update({ name: next, updated_at: new Date().toISOString() })
+      .eq("id", group.id);
+    setSavingName(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Group renamed");
+      setEditingName(false);
+      qc.invalidateQueries({ queryKey: ["groups"] });
+    }
+  }
+
+  async function setRole(uid: string, role: "admin" | "member") {
+    const { error } = await supabase.from("group_members")
+      .update({ role }).eq("group_id", group.id).eq("user_id", uid);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(role === "admin" ? "Promoted to admin" : "Demoted to member");
+      qc.invalidateQueries({ queryKey: ["group-members"] });
+    }
+  }
+
   async function addMember(uid: string) {
     const { error } = await supabase.from("group_members").insert({ group_id: group.id, user_id: uid, role: "member" });
     if (error) toast.error(error.message);
@@ -1016,8 +1048,32 @@ function GroupInfoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{group.name}</DialogTitle>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={80}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") { setEditingName(false); setNameDraft(group.name); } }}
+              />
+              <Button size="sm" onClick={saveName} disabled={savingName}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setEditingName(false); setNameDraft(group.name); }}>Cancel</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <DialogTitle className="flex-1">{group.name}</DialogTitle>
+              {isAdmin && (
+                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Rename group" onClick={() => setEditingName(true)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
           {group.description && <DialogDescription>{group.description}</DialogDescription>}
+          {!isAdmin && (
+            <DialogDescription className="text-xs">Only admins can rename, manage members, change roles, or delete this group.</DialogDescription>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">
@@ -1054,10 +1110,25 @@ function GroupInfoDialog({
                       {handle && <div className="truncate text-xs text-muted-foreground">{handle}</div>}
                     </div>
                     {isAdmin && !isMe && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
-                        onClick={() => removeMember(member.user_id)} aria-label="Remove">
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <>
+                        {member.role === "member" ? (
+                          <Button size="icon" variant="ghost" className="h-8 w-8"
+                            aria-label="Promote to admin" title="Promote to admin"
+                            onClick={() => setRole(member.user_id, "admin")}>
+                            <Shield className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button size="icon" variant="ghost" className="h-8 w-8"
+                            aria-label="Demote to member" title="Demote to member"
+                            onClick={() => setRole(member.user_id, "member")}>
+                            <ShieldOff className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
+                          onClick={() => removeMember(member.user_id)} aria-label="Remove">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 );
