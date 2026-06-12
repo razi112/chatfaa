@@ -201,6 +201,24 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { a: string; b: string }; Returns: boolean }
+      create_group: {
+        Args: { _description?: string; _name: string }
+        Returns: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "groups"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_group_admin: {
         Args: { _group: string; _user: string }
         Returns: boolean
