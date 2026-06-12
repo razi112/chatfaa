@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Search, Users, LogOut, Send, UserPlus, Check, X, Inbox, Loader2,
   Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
+  Hash, Smile, Eraser, Ban, MoreVertical, Trash,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,16 +15,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/chat")({
-  head: () => ({ meta: [{ title: "ChatSphere" }] }),
+  head: () => ({ meta: [{ title: "chatfaa" }] }),
   component: ChatApp,
 });
 
+// ─── Types ────────────────────────────────────────────────────
 type Profile = {
   id: string; username: string; display_name: string | null;
   avatar_url: string | null; status: string; bio: string | null;
@@ -46,17 +51,69 @@ type GroupMember = {
 type GroupMessage = {
   id: string; group_id: string; sender_id: string; content: string; created_at: string;
 };
+type BlockedUser = { blocker_id: string; blocked_id: string; created_at: string };
 
 type Tab = "chats" | "friends" | "search";
-type Active =
-  | { type: "dm"; id: string }
-  | { type: "group"; id: string }
-  | null;
+type Active = { type: "dm"; id: string } | { type: "group"; id: string } | null;
 
-function initials(name: string) {
-  return name.slice(0, 2).toUpperCase();
+// ─── Stickers ─────────────────────────────────────────────────
+const STICKER_CATEGORIES = [
+  {
+    label: "Faces",
+    stickers: ["😀","😂","🥹","😍","🤩","😎","🥺","😭","😤","🤯","🥳","😴","🤔","🫠","😇","🤗","😈","👻","💀","🤡"],
+  },
+  {
+    label: "Gestures",
+    stickers: ["👍","👎","🙌","👏","🤝","🫶","❤️","🔥","✨","💯","🎉","🎊","💪","🤞","✌️","🤙","👌","🫡","🤟","🤘"],
+  },
+  {
+    label: "Animals",
+    stickers: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🦄","🐉"],
+  },
+  {
+    label: "Food",
+    stickers: ["🍕","🍔","🌮","🍜","🍣","🍩","🍪","🎂","🍦","🧋","🍷","🥂","☕","🧃","🍿","🧁","🍫","🍓","🥑","🍉"],
+  },
+  {
+    label: "Activities",
+    stickers: ["⚽","🏀","🎮","🎵","🎸","🎤","🎨","📚","💻","🚀","🌍","⛺","🏖️","🎭","🎬","🎯","🏆","🥇","🎲","🎰"],
+  },
+];
+
+function initials(name: string) { return name.slice(0, 2).toUpperCase(); }
+
+// ─── Shared UI atoms ──────────────────────────────────────────
+function UserAvatar({ src, name, size = "md", className }: {
+  src?: string | null; name: string; size?: "sm" | "md" | "lg"; className?: string;
+}) {
+  const s = size === "sm" ? "h-7 w-7 text-[10px]" : size === "lg" ? "h-12 w-12 text-base" : "h-9 w-9 text-xs";
+  return (
+    <Avatar className={cn(s, className)}>
+      <AvatarImage src={src ?? undefined} />
+      <AvatarFallback
+        className="font-semibold"
+        style={{
+          background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.3), oklch(0.70 0.18 310 / 0.3))",
+          color: "oklch(0.80 0.15 280)",
+          border: "1px solid oklch(0.65 0.22 280 / 0.2)",
+        }}
+      >
+        {initials(name)}
+      </AvatarFallback>
+    </Avatar>
+  );
 }
 
+function OnlineDot({ size = "md", borderRef = "sidebar" }: { size?: "sm" | "md"; borderRef?: string }) {
+  return (
+    <span
+      className={cn("absolute rounded-full border-2 online-pulse", size === "sm" ? "-bottom-0.5 -right-0.5 h-2.5 w-2.5" : "-bottom-0.5 -right-0.5 h-3 w-3")}
+      style={{ background: "var(--color-online)", borderColor: `var(--color-${borderRef})` }}
+    />
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────
 function ChatApp() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -65,10 +122,8 @@ function ChatApp() {
   const [active, setActive] = useState<Active>(null);
   const [presence, setPresence] = useState<Set<string>>(new Set());
 
-  // --- queries ---
   const profileQ = useQuery({
-    queryKey: ["me", user?.id],
-    enabled: !!user,
+    queryKey: ["me", user?.id], enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle();
       if (error) throw error;
@@ -77,8 +132,7 @@ function ChatApp() {
   });
 
   const friendshipsQ = useQuery({
-    queryKey: ["friendships", user?.id],
-    enabled: !!user,
+    queryKey: ["friendships", user?.id], enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase.from("friendships").select("*")
         .or(`sender_id.eq.${user!.id},receiver_id.eq.${user!.id}`)
@@ -89,21 +143,26 @@ function ChatApp() {
   });
 
   const groupsQ = useQuery({
-    queryKey: ["groups", user?.id],
-    enabled: !!user,
+    queryKey: ["groups", user?.id], enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("groups").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data as Group[];
     },
   });
 
-  // All group memberships across user's groups
+  const blockedQ = useQuery({
+    queryKey: ["blocked", user?.id], enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("blocked_users").select("*").eq("blocker_id", user!.id);
+      if (error) throw error;
+      return data as BlockedUser[];
+    },
+  });
+
   const groupIds = useMemo(() => (groupsQ.data ?? []).map((g) => g.id), [groupsQ.data]);
   const allMembersQ = useQuery({
-    queryKey: ["group-members", groupIds],
-    enabled: groupIds.length > 0,
+    queryKey: ["group-members", groupIds], enabled: groupIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase.from("group_members").select("*").in("group_id", groupIds);
       if (error) throw error;
@@ -111,7 +170,6 @@ function ChatApp() {
     },
   });
 
-  // Collect every profile we need (friends + group members + me)
   const involvedIds = useMemo(() => {
     const ids = new Set<string>();
     (friendshipsQ.data ?? []).forEach((f) => { ids.add(f.sender_id); ids.add(f.receiver_id); });
@@ -121,8 +179,7 @@ function ChatApp() {
   }, [friendshipsQ.data, allMembersQ.data, user]);
 
   const profilesQ = useQuery({
-    queryKey: ["profiles", involvedIds],
-    enabled: involvedIds.length > 0,
+    queryKey: ["profiles", involvedIds], enabled: involvedIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").in("id", involvedIds);
       if (error) throw error;
@@ -131,6 +188,8 @@ function ChatApp() {
       return map;
     },
   });
+
+  const blockedIds = useMemo(() => new Set((blockedQ.data ?? []).map((b) => b.blocked_id)), [blockedQ.data]);
 
   const acceptedFriends = useMemo(() => {
     const list = friendshipsQ.data ?? [];
@@ -162,149 +221,106 @@ function ChatApp() {
       .filter((x) => x.profile);
   }, [friendshipsQ.data, profilesQ.data, user]);
 
-  // --- realtime: messages + friendships + groups + presence ---
   useEffect(() => {
     if (!user) return;
-
-    const msgChannel = supabase
-      .channel("rt-messages-" + user.id)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` },
-        () => qc.invalidateQueries({ queryKey: ["messages"] }))
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `sender_id=eq.${user.id}` },
-        () => qc.invalidateQueries({ queryKey: ["messages"] }))
+    const msgChannel = supabase.channel("rt-messages-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["messages"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `sender_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["messages"] }))
       .subscribe();
-
-    const friendChannel = supabase
-      .channel("rt-friendships-" + user.id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => {
-        qc.invalidateQueries({ queryKey: ["friendships"] });
-      })
+    const friendChannel = supabase.channel("rt-friendships-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => qc.invalidateQueries({ queryKey: ["friendships"] }))
       .subscribe();
-
-    const groupChannel = supabase
-      .channel("rt-groups-" + user.id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
-        qc.invalidateQueries({ queryKey: ["groups"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => {
-        qc.invalidateQueries({ queryKey: ["group-members"] });
-        qc.invalidateQueries({ queryKey: ["groups"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "group_messages" }, () => {
-        qc.invalidateQueries({ queryKey: ["group-messages"] });
-      })
+    const groupChannel = supabase.channel("rt-groups-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => qc.invalidateQueries({ queryKey: ["groups"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => { qc.invalidateQueries({ queryKey: ["group-members"] }); qc.invalidateQueries({ queryKey: ["groups"] }); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_messages" }, () => qc.invalidateQueries({ queryKey: ["group-messages"] }))
       .subscribe();
-
-    const presenceChannel = supabase.channel("online-users", {
-      config: { presence: { key: user.id } },
-    });
+    const blockedChannel = supabase.channel("rt-blocked-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "blocked_users", filter: `blocker_id=eq.${user.id}` }, () => qc.invalidateQueries({ queryKey: ["blocked"] }))
+      .subscribe();
+    const presenceChannel = supabase.channel("online-users", { config: { presence: { key: user.id } } });
     presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        setPresence(new Set(Object.keys(state)));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await presenceChannel.track({ online_at: new Date().toISOString() });
-        }
-      });
-
+      .on("presence", { event: "sync" }, () => setPresence(new Set(Object.keys(presenceChannel.presenceState()))))
+      .subscribe(async (status) => { if (status === "SUBSCRIBED") await presenceChannel.track({ online_at: new Date().toISOString() }); });
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(friendChannel);
       supabase.removeChannel(groupChannel);
+      supabase.removeChannel(blockedChannel);
       supabase.removeChannel(presenceChannel);
     };
   }, [user, qc]);
 
   async function handleSignOut() {
-    await qc.cancelQueries();
-    qc.clear();
+    await qc.cancelQueries(); qc.clear();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
 
   if (!user) return null;
-
   const me = profileQ.data;
   const profiles = profilesQ.data ?? {};
   const groups = groupsQ.data ?? [];
   const allMembers = allMembersQ.data ?? [];
-
   const activeFriend = active?.type === "dm" ? (profiles[active.id] ?? null) : null;
   const activeGroup = active?.type === "group" ? (groups.find((g) => g.id === active.id) ?? null) : null;
 
   return (
     <div className="h-screen w-full flex bg-background text-foreground overflow-hidden">
       {/* Rail */}
-      <aside className="w-16 shrink-0 bg-sidebar flex flex-col items-center py-4 gap-3 border-r border-border">
-        <div className="grid h-10 w-10 place-items-center rounded-xl"
+      <aside className="w-[68px] shrink-0 flex flex-col items-center py-4 gap-2 border-r"
+        style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.18 0.016 268)" }}>
+        <div className="grid h-10 w-10 place-items-center rounded-2xl mb-3 shadow-[0_4px_16px_-4px_oklch(0.65_0.22_280/0.5)]"
           style={{ background: "var(--gradient-primary)" }}>
-          <MessageCircle className="h-5 w-5 text-primary-foreground" />
+          <MessageCircle className="h-5 w-5 text-white" />
         </div>
-        <div className="mt-2 flex flex-col gap-1">
+        <div className="flex flex-col gap-1 flex-1">
           <RailButton icon={MessageCircle} active={tab === "chats"} onClick={() => setTab("chats")} label="Chats" />
-          <RailButton icon={Users} active={tab === "friends"} onClick={() => setTab("friends")} label="Friends"
-            badge={pendingIncoming.length || undefined} />
-          <RailButton icon={Search} active={tab === "search"} onClick={() => setTab("search")} label="Find" />
+          <RailButton icon={Users} active={tab === "friends"} onClick={() => setTab("friends")} label="Friends" badge={pendingIncoming.length || undefined} />
+          <RailButton icon={Search} active={tab === "search"} onClick={() => setTab("search")} label="Find people" />
         </div>
-        <div className="mt-auto flex flex-col items-center gap-2">
-          <Avatar className="h-9 w-9 border border-border">
-            <AvatarImage src={me?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">
-              {initials(me?.username ?? "?")}
-            </AvatarFallback>
-          </Avatar>
-          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={handleSignOut} aria-label="Sign out">
+        <div className="flex flex-col items-center gap-2 pt-2 border-t w-full" style={{ borderColor: "oklch(0.18 0.016 268)" }}>
+          <div className="relative">
+            <UserAvatar src={me?.avatar_url} name={me?.username ?? "?"} />
+            {presence.has(user.id) && <OnlineDot />}
+          </div>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleSignOut} aria-label="Sign out">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </aside>
 
       {/* Side panel */}
-      <section className="w-72 shrink-0 bg-card border-r border-border flex flex-col">
-        <header className="px-4 h-14 flex items-center justify-between border-b border-border">
-          <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
+      <section className="w-[280px] shrink-0 flex flex-col border-r"
+        style={{ background: "oklch(0.13 0.015 268)", borderColor: "oklch(0.20 0.016 268)" }}>
+        <header className="px-4 h-14 flex items-center justify-between border-b shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+          <h2 className="font-semibold text-sm tracking-wide text-muted-foreground uppercase">
             {tab === "chats" ? "Conversations" : tab === "friends" ? "Friends" : "Find people"}
           </h2>
-          {tab === "chats" && (
-            <CreateGroupDialog friends={acceptedFriends} meId={user.id} onCreated={(id) => setActive({ type: "group", id })} />
-          )}
+          {tab === "chats" && <CreateGroupDialog friends={acceptedFriends} meId={user.id} onCreated={(id) => setActive({ type: "group", id })} />}
         </header>
-        <ScrollArea className="flex-1">
-          {tab === "chats" && (
-            <ChatsList
-              friends={acceptedFriends}
-              groups={groups}
-              active={active}
-              onSelect={setActive}
-              presence={presence}
-            />
-          )}
-          {tab === "friends" && (
-            <FriendsList
-              accepted={acceptedFriends}
-              incoming={pendingIncoming}
-              outgoing={pendingOutgoing}
-              presence={presence}
-              onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }}
-            />
-          )}
+        <ScrollArea className="flex-1 min-h-0">
+          {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} />}
+          {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }} />}
           {tab === "search" && <SearchUsers meId={user.id} />}
         </ScrollArea>
         {me && (
-          <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-            Signed in as <span className="text-foreground font-medium">@{me.username}</span>
+          <div className="border-t px-4 py-3 text-xs text-muted-foreground shrink-0" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+            Signed in as <span className="font-semibold" style={{ color: "oklch(0.80 0.15 280)" }}>@{me.username}</span>
           </div>
         )}
       </section>
 
       {/* Main */}
-      <main className="flex-1 min-w-0 flex flex-col bg-background">
+      <main className="flex-1 min-w-0 flex flex-col" style={{ background: "oklch(0.12 0.014 268)" }}>
         {activeFriend ? (
-          <ChatWindow friend={activeFriend} meId={user.id} online={presence.has(activeFriend.id)} />
+          <ChatWindow
+            friend={activeFriend}
+            meId={user.id}
+            online={presence.has(activeFriend.id)}
+            isBlocked={blockedIds.has(activeFriend.id)}
+            onChatClosed={() => setActive(null)}
+          />
         ) : activeGroup ? (
           <GroupChatWindow
             group={activeGroup}
@@ -323,24 +339,20 @@ function ChatApp() {
   );
 }
 
-function RailButton({
-  icon: Icon, active, onClick, label, badge,
-}: {
+// ─── Rail button ──────────────────────────────────────────────
+function RailButton({ icon: Icon, active, onClick, label, badge }: {
   icon: typeof MessageCircle; active: boolean; onClick: () => void; label: string; badge?: number;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "relative grid h-10 w-10 place-items-center rounded-xl transition",
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+    <button onClick={onClick} aria-label={label} title={label}
+      className={cn("relative grid h-10 w-10 place-items-center rounded-xl transition-all duration-200",
+        active ? "text-white shadow-[0_4px_16px_-4px_oklch(0.65_0.22_280/0.5)]" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
       )}
-    >
-      <Icon className="h-5 w-5" />
+      style={active ? { background: "var(--gradient-primary)" } : {}}>
+      <Icon className="h-[18px] w-[18px]" />
       {badge ? (
-        <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 grid place-items-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10px] font-bold text-white"
+          style={{ background: "oklch(0.62 0.22 25)" }}>
           {badge}
         </span>
       ) : null}
@@ -348,84 +360,88 @@ function RailButton({
   );
 }
 
-function ChatsList({
-  friends, groups, active, onSelect, presence,
-}: {
+// ─── Section label ────────────────────────────────────────────
+function SectionLabel({ icon: Icon, label }: { icon: typeof Users; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+      <Icon className="h-3 w-3" />{label}
+    </div>
+  );
+}
+
+// ─── Chats list ───────────────────────────────────────────────
+function ChatsList({ friends, groups, active, onSelect, presence, blockedIds }: {
   friends: Profile[]; groups: Group[]; active: Active;
-  onSelect: (a: Active) => void; presence: Set<string>;
+  onSelect: (a: Active) => void; presence: Set<string>; blockedIds: Set<string>;
 }) {
-  if (friends.length === 0 && groups.length === 0) {
-    return <div className="p-6 text-sm text-muted-foreground">
-      No conversations yet. Add a friend or create a group to start chatting.
-    </div>;
+  const visibleFriends = friends.filter((f) => !blockedIds.has(f.id));
+  if (visibleFriends.length === 0 && groups.length === 0) {
+    return (
+      <div className="p-6 text-center">
+        <div className="mx-auto h-12 w-12 rounded-2xl grid place-items-center mb-4"
+          style={{ background: "oklch(0.65 0.22 280 / 0.1)", border: "1px solid oklch(0.65 0.22 280 / 0.2)" }}>
+          <MessageCircle className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground">No conversations yet. Add a friend to get started.</p>
+      </div>
+    );
   }
   return (
-    <div className="p-2 space-y-4">
+    <div className="p-3 space-y-5">
       {groups.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <UsersRound className="h-3 w-3" /> Groups
-          </div>
-          <ul className="space-y-1">
-            {groups.map((g) => (
-              <li key={g.id}>
-                <button
-                  onClick={() => onSelect({ type: "group", id: g.id })}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition",
-                    active?.type === "group" && active.id === g.id
-                      ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
-                  )}
-                >
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={g.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                      <UsersRound className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-sm">{g.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">Group</div>
-                  </div>
-                </button>
-              </li>
-            ))}
+          <SectionLabel icon={UsersRound} label="Groups" />
+          <ul className="space-y-0.5 mt-1">
+            {groups.map((g) => {
+              const isActive = active?.type === "group" && active.id === g.id;
+              return (
+                <li key={g.id}>
+                  <button onClick={() => onSelect({ type: "group", id: g.id })}
+                    className={cn("w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                      isActive ? "text-white" : "text-foreground/80 hover:bg-white/5 hover:text-foreground"
+                    )}
+                    style={isActive ? { background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.2), oklch(0.70 0.18 310 / 0.15))", border: "1px solid oklch(0.65 0.22 280 / 0.25)" } : { border: "1px solid transparent" }}>
+                    <div className="h-9 w-9 rounded-xl grid place-items-center shrink-0"
+                      style={{ background: "oklch(0.65 0.22 280 / 0.15)", border: "1px solid oklch(0.65 0.22 280 / 0.2)" }}>
+                      <UsersRound className="h-4 w-4" style={{ color: "oklch(0.75 0.18 280)" }} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-sm">{g.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">Group chat</div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
-
-      {friends.length > 0 && (
+      {visibleFriends.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <MessageCircle className="h-3 w-3" /> Direct messages
-          </div>
-          <ul className="space-y-1">
-            {friends.map((f) => (
-              <li key={f.id}>
-                <button
-                  onClick={() => onSelect({ type: "dm", id: f.id })}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition",
-                    active?.type === "dm" && active.id === f.id
-                      ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60"
-                  )}
-                >
-                  <div className="relative">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={f.avatar_url ?? undefined} />
-                      <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(f.username)}</AvatarFallback>
-                    </Avatar>
-                    {presence.has(f.id) && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[color:var(--color-online)]" />
+          <SectionLabel icon={Hash} label="Direct messages" />
+          <ul className="space-y-0.5 mt-1">
+            {visibleFriends.map((f) => {
+              const isActive = active?.type === "dm" && active.id === f.id;
+              const online = presence.has(f.id);
+              return (
+                <li key={f.id}>
+                  <button onClick={() => onSelect({ type: "dm", id: f.id })}
+                    className={cn("w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                      isActive ? "text-white" : "text-foreground/80 hover:bg-white/5 hover:text-foreground"
                     )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-sm">{f.display_name || f.username}</div>
-                    <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
-                  </div>
-                </button>
-              </li>
-            ))}
+                    style={isActive ? { background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.2), oklch(0.70 0.18 310 / 0.15))", border: "1px solid oklch(0.65 0.22 280 / 0.25)" } : { border: "1px solid transparent" }}>
+                    <div className="relative shrink-0">
+                      <UserAvatar src={f.avatar_url} name={f.username} />
+                      {online && <OnlineDot />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-sm">{f.display_name || f.username}</div>
+                      <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -433,9 +449,8 @@ function ChatsList({
   );
 }
 
-function CreateGroupDialog({
-  friends, meId, onCreated,
-}: { friends: Profile[]; meId: string; onCreated: (id: string) => void }) {
+// ─── Create group dialog ──────────────────────────────────────
+function CreateGroupDialog({ friends, meId, onCreated }: { friends: Profile[]; meId: string; onCreated: (id: string) => void }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -443,55 +458,33 @@ function CreateGroupDialog({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  function toggle(id: string) {
-    setPicked((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
-    });
-  }
+  function toggle(id: string) { setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }
 
   async function submit() {
     const trimmed = name.trim();
     if (!trimmed) { toast.error("Group name is required"); return; }
     setBusy(true);
-    // Use a SECURITY DEFINER RPC so group creation works regardless of
-    // any client-side auth/session edge cases — the function uses auth.uid()
-    // server-side and atomically creates the group + creator-as-admin row.
-    const { data: g, error } = await supabase.rpc("create_group", {
-      _name: trimmed,
-      _description: desc.trim() || undefined,
-    });
-
-    if (error || !g) {
-      setBusy(false);
-      toast.error(error?.message ?? "Could not create group");
-      return;
-    }
-
+    const { data: g, error } = await supabase.rpc("create_group", { _name: trimmed, _description: desc.trim() || undefined });
+    if (error || !g) { setBusy(false); toast.error(error?.message ?? "Could not create group"); return; }
     if (picked.size > 0) {
       const rows = Array.from(picked).map((uid) => ({ group_id: g.id, user_id: uid, role: "member" as const }));
       const { error: mErr } = await supabase.from("group_members").insert(rows);
       if (mErr) toast.error("Group created, but adding members failed: " + mErr.message);
     }
-    setBusy(false);
-    setOpen(false);
-    setName(""); setDesc(""); setPicked(new Set());
+    setBusy(false); setOpen(false); setName(""); setDesc(""); setPicked(new Set());
     toast.success("Group created");
-    qc.invalidateQueries({ queryKey: ["groups"] });
-    qc.invalidateQueries({ queryKey: ["group-members"] });
+    qc.invalidateQueries({ queryKey: ["groups"] }); qc.invalidateQueries({ queryKey: ["group-members"] });
     onCreated(g.id);
   }
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="New group" title="New group">
+        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" aria-label="New group" title="New group">
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-2xl">
         <DialogHeader>
           <DialogTitle>New group</DialogTitle>
           <DialogDescription>Create a group and add friends to it.</DialogDescription>
@@ -499,25 +492,20 @@ function CreateGroupDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="group-name">Name</Label>
-            <Input id="group-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend plans" />
+            <Input id="group-name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend plans" className="rounded-xl" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="group-desc">Description (optional)</Label>
-            <Input id="group-desc" maxLength={200} value={desc} onChange={(e) => setDesc(e.target.value)} />
+            <Input id="group-desc" maxLength={200} value={desc} onChange={(e) => setDesc(e.target.value)} className="rounded-xl" />
           </div>
           <div className="space-y-1.5">
             <Label>Add friends ({picked.size})</Label>
-            <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
-              {friends.length === 0 && (
-                <p className="text-xs text-muted-foreground p-3">You have no friends yet — you can add members later.</p>
-              )}
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+              {friends.length === 0 && <p className="text-xs text-muted-foreground p-3">No friends yet — you can add members later.</p>}
               {friends.map((f) => (
-                <label key={f.id} className="flex items-center gap-3 px-3 py-2 hover:bg-sidebar-accent/40 cursor-pointer">
+                <label key={f.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 cursor-pointer">
                   <Checkbox checked={picked.has(f.id)} onCheckedChange={() => toggle(f.id)} />
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={f.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-[10px]">{initials(f.username)}</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar src={f.avatar_url} name={f.username} size="sm" />
                   <div className="min-w-0 text-sm">
                     <div className="truncate font-medium">{f.display_name || f.username}</div>
                     <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
@@ -529,8 +517,8 @@ function CreateGroupDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
-          <Button onClick={submit} disabled={busy || !name.trim()}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+          <Button onClick={submit} disabled={busy || !name.trim()} style={{ background: "var(--gradient-primary)" }}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create group"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -538,17 +526,12 @@ function CreateGroupDialog({
   );
 }
 
-function FriendsList({
-  accepted, incoming, outgoing, presence, onMessage,
-}: {
-  accepted: Profile[];
-  incoming: { friendship: Friendship; profile: Profile }[];
-  outgoing: { friendship: Friendship; profile: Profile }[];
-  presence: Set<string>;
-  onMessage: (id: string) => void;
+// ─── Friends list ─────────────────────────────────────────────
+function FriendsList({ accepted, incoming, outgoing, presence, onMessage }: {
+  accepted: Profile[]; incoming: { friendship: Friendship; profile: Profile }[];
+  outgoing: { friendship: Friendship; profile: Profile }[]; presence: Set<string>; onMessage: (id: string) => void;
 }) {
   const qc = useQueryClient();
-
   async function respond(id: string, status: "accepted" | "rejected") {
     const { error } = await supabase.from("friendships").update({ status }).eq("id", id);
     if (error) toast.error(error.message);
@@ -563,75 +546,60 @@ function FriendsList({
   return (
     <div className="p-3 space-y-5">
       {incoming.length > 0 && (
-        <Section title={`Incoming requests (${incoming.length})`} icon={Inbox}>
-          {incoming.map(({ friendship, profile }) => (
-            <Row key={friendship.id} profile={profile} online={presence.has(profile.id)}>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-[color:var(--color-online)]"
-                onClick={() => respond(friendship.id, "accepted")} aria-label="Accept">
-                <Check className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
-                onClick={() => respond(friendship.id, "rejected")} aria-label="Decline">
-                <X className="h-4 w-4" />
-              </Button>
-            </Row>
-          ))}
-        </Section>
+        <div>
+          <SectionLabel icon={Inbox} label={`Incoming (${incoming.length})`} />
+          <div className="space-y-0.5 mt-1">
+            {incoming.map(({ friendship, profile }) => (
+              <FriendRow key={friendship.id} profile={profile} online={presence.has(profile.id)}>
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-green-500/10" style={{ color: "var(--color-online)" }} onClick={() => respond(friendship.id, "accepted")} aria-label="Accept"><Check className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive" onClick={() => respond(friendship.id, "rejected")} aria-label="Decline"><X className="h-4 w-4" /></Button>
+              </FriendRow>
+            ))}
+          </div>
+        </div>
       )}
-
-      <Section title={`Friends (${accepted.length})`} icon={Users}>
-        {accepted.length === 0 ? (
-          <p className="text-xs text-muted-foreground px-2">You have no friends yet. Try the Find tab.</p>
-        ) : accepted.map((p) => (
-          <Row key={p.id} profile={p} online={presence.has(p.id)}>
-            <Button size="sm" variant="ghost" onClick={() => onMessage(p.id)}>Message</Button>
-          </Row>
-        ))}
-      </Section>
-
+      <div>
+        <SectionLabel icon={Users} label={`Friends (${accepted.length})`} />
+        <div className="space-y-0.5 mt-1">
+          {accepted.length === 0 ? (
+            <p className="text-xs text-muted-foreground px-3 py-2">No friends yet. Try the Find tab.</p>
+          ) : accepted.map((p) => (
+            <FriendRow key={p.id} profile={p} online={presence.has(p.id)}>
+              <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs hover:bg-white/8" onClick={() => onMessage(p.id)}>Message</Button>
+            </FriendRow>
+          ))}
+        </div>
+      </div>
       {outgoing.length > 0 && (
-        <Section title={`Sent (${outgoing.length})`} icon={UserPlus}>
-          {outgoing.map(({ friendship, profile }) => (
-            <Row key={friendship.id} profile={profile} online={presence.has(profile.id)}>
-              <Button size="sm" variant="ghost" onClick={() => cancel(friendship.id)}>Cancel</Button>
-            </Row>
-          ))}
-        </Section>
+        <div>
+          <SectionLabel icon={UserPlus} label={`Sent (${outgoing.length})`} />
+          <div className="space-y-0.5 mt-1">
+            {outgoing.map(({ friendship, profile }) => (
+              <FriendRow key={friendship.id} profile={profile} online={presence.has(profile.id)}>
+                <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => cancel(friendship.id)}>Cancel</Button>
+              </FriendRow>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon: typeof Users; children: React.ReactNode }) {
+function FriendRow({ profile, online, children }: { profile: Profile; online: boolean; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3 w-3" /> {title}
-      </div>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function Row({ profile, online, children }: { profile: Profile; online: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-sidebar-accent/60">
-      <div className="relative">
-        <Avatar className="h-9 w-9">
-          <AvatarImage src={profile.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(profile.username)}</AvatarFallback>
-        </Avatar>
-        {online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[color:var(--color-online)]" />}
-      </div>
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/5 transition-colors">
+      <div className="relative shrink-0"><UserAvatar src={profile.avatar_url} name={profile.username} />{online && <OnlineDot />}</div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{profile.display_name || profile.username}</div>
         <div className="truncate text-xs text-muted-foreground">@{profile.username}</div>
       </div>
-      <div className="flex items-center gap-1">{children}</div>
+      <div className="flex items-center gap-1 shrink-0">{children}</div>
     </div>
   );
 }
 
+// ─── Search users ─────────────────────────────────────────────
 function SearchUsers({ meId }: { meId: string }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
@@ -640,83 +608,159 @@ function SearchUsers({ meId }: { meId: string }) {
 
   useEffect(() => {
     if (q.trim().length < 2) { setResults([]); return; }
-    let cancelled = false;
-    setLoading(true);
+    let cancelled = false; setLoading(true);
     const t = setTimeout(async () => {
       const { data, error } = await supabase.from("profiles").select("*")
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-        .neq("id", meId)
-        .limit(20);
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).neq("id", meId).limit(20);
       if (cancelled) return;
       if (error) toast.error(error.message);
-      setResults((data as Profile[]) ?? []);
-      setLoading(false);
+      setResults((data as Profile[]) ?? []); setLoading(false);
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
   }, [q, meId]);
 
   async function addFriend(receiverId: string) {
     const { error } = await supabase.from("friendships").insert({ sender_id: meId, receiver_id: receiverId });
-    if (error) {
-      if (error.code === "23505") toast.error("Request already exists.");
-      else toast.error(error.message);
-    } else {
-      toast.success("Request sent");
-      qc.invalidateQueries({ queryKey: ["friendships"] });
-    }
+    if (error) { if (error.code === "23505") toast.error("Request already exists."); else toast.error(error.message); }
+    else { toast.success("Request sent"); qc.invalidateQueries({ queryKey: ["friendships"] }); }
   }
 
   return (
     <div className="p-3 space-y-3">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by @username or name"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="pl-9"
-        />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input placeholder="Search @username or name…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 rounded-xl" />
       </div>
-      {loading && <div className="text-xs text-muted-foreground px-2 flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Searching…</div>}
-      {!loading && q.length >= 2 && results.length === 0 && (
-        <div className="text-xs text-muted-foreground px-2">No matches.</div>
-      )}
-      <div className="space-y-1">
+      {loading && <div className="flex items-center gap-2 text-xs text-muted-foreground px-1"><Loader2 className="h-3 w-3 animate-spin" /> Searching…</div>}
+      {!loading && q.length >= 2 && results.length === 0 && <div className="text-xs text-muted-foreground px-1">No matches found.</div>}
+      <div className="space-y-0.5">
         {results.map((p) => (
-          <Row key={p.id} profile={p} online={false}>
-            <Button size="sm" variant="ghost" onClick={() => addFriend(p.id)}>
-              <UserPlus className="h-4 w-4 mr-1" /> Add
+          <FriendRow key={p.id} profile={p} online={false}>
+            <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs gap-1.5 hover:bg-white/8" onClick={() => addFriend(p.id)}>
+              <UserPlus className="h-3.5 w-3.5" /> Add
             </Button>
-          </Row>
+          </FriendRow>
         ))}
       </div>
     </div>
   );
 }
 
+// ─── Empty state ──────────────────────────────────────────────
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex-1 grid place-items-center text-center p-8">
-      <div className="max-w-sm">
-        <div className="mx-auto h-14 w-14 rounded-2xl grid place-items-center" style={{ background: "var(--gradient-primary)" }}>
-          <MessageCircle className="h-7 w-7 text-primary-foreground" />
+      <div className="max-w-xs">
+        <div className="mx-auto h-16 w-16 rounded-3xl grid place-items-center mb-6 shadow-[0_8px_32px_-8px_oklch(0.65_0.22_280/0.4)]" style={{ background: "var(--gradient-primary)" }}>
+          <MessageCircle className="h-8 w-8 text-white" />
         </div>
-        <h2 className="mt-5 text-2xl font-semibold">Pick a conversation</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Select a friend or a group on the left, or find someone new by their @username.
-        </p>
-        <Button className="mt-5" onClick={onAdd}>
-          <Search className="h-4 w-4 mr-2" /> Find people
+        <h2 className="text-xl font-bold mb-2 tracking-tight">No conversation open</h2>
+        <p className="text-sm text-muted-foreground leading-relaxed mb-6">Select a chat from the sidebar, or find someone new by their @username.</p>
+        <Button onClick={onAdd} className="gap-2 shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-primary)" }}>
+          <Search className="h-4 w-4" /> Find people
         </Button>
       </div>
     </div>
   );
 }
 
-function ChatWindow({ friend, meId, online }: { friend: Profile; meId: string; online: boolean }) {
+// ─── Sticker picker ───────────────────────────────────────────
+function StickerPicker({ onPick, onClose }: { onPick: (s: string) => void; onClose: () => void }) {
+  const [cat, setCat] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute bottom-full left-0 mb-2 z-50 rounded-2xl overflow-hidden shadow-[0_8px_40px_-8px_oklch(0_0_0/0.7)]"
+      style={{
+        width: "320px",
+        background: "oklch(0.16 0.016 268)",
+        border: "1px solid oklch(0.26 0.018 268)",
+      }}
+    >
+      {/* Category tabs */}
+      <div className="flex border-b overflow-x-auto" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+        {STICKER_CATEGORIES.map((c, i) => (
+          <button
+            key={c.label}
+            onClick={() => setCat(i)}
+            className={cn(
+              "px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors shrink-0",
+              cat === i ? "text-white border-b-2" : "text-muted-foreground hover:text-foreground"
+            )}
+            style={cat === i ? { borderColor: "oklch(0.65 0.22 280)" } : {}}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {/* Grid */}
+      <div className="grid grid-cols-8 gap-0.5 p-3 max-h-[200px] overflow-y-auto">
+        {STICKER_CATEGORIES[cat].stickers.map((s) => (
+          <button
+            key={s}
+            onClick={() => { onPick(s); onClose(); }}
+            className="text-2xl h-9 w-9 grid place-items-center rounded-lg hover:bg-white/10 transition-colors"
+            title={s}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Confirm dialog ───────────────────────────────────────────
+function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, confirmVariant = "destructive", onConfirm, loading }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  title: string; description: string; confirmLabel: string;
+  confirmVariant?: "destructive" | "default"; onConfirm: () => void; loading?: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
+          <Button
+            onClick={onConfirm} disabled={loading}
+            className={confirmVariant === "destructive" ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : ""}
+            style={confirmVariant !== "destructive" ? { background: "var(--gradient-primary)" } : {}}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Chat window (DM) ─────────────────────────────────────────
+function ChatWindow({ friend, meId, online, isBlocked, onChatClosed }: {
+  friend: Profile; meId: string; online: boolean; isBlocked: boolean; onChatClosed: () => void;
+}) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [confirmUnblock, setConfirmUnblock] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const msgsQ = useQuery({
@@ -724,8 +768,7 @@ function ChatWindow({ friend, meId, online }: { friend: Profile; meId: string; o
     queryFn: async () => {
       const { data, error } = await supabase.from("messages").select("*")
         .or(`and(sender_id.eq.${meId},receiver_id.eq.${friend.id}),and(sender_id.eq.${friend.id},receiver_id.eq.${meId})`)
-        .order("created_at", { ascending: true })
-        .limit(200);
+        .order("created_at", { ascending: true }).limit(200);
       if (error) throw error;
       return data as Message[];
     },
@@ -738,101 +781,188 @@ function ChatWindow({ friend, meId, online }: { friend: Profile; meId: string; o
   useEffect(() => {
     const unread = (msgsQ.data ?? []).filter((m) => m.receiver_id === meId && !m.read_at);
     if (unread.length === 0) return;
-    supabase.from("messages").update({ read_at: new Date().toISOString() })
-      .in("id", unread.map((m) => m.id)).then(() => {});
+    supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unread.map((m) => m.id)).then(() => {});
   }, [msgsQ.data, meId]);
 
-  async function send() {
-    const content = text.trim();
-    if (!content || sending) return;
+  async function send(content?: string) {
+    const msg = (content ?? text).trim();
+    if (!msg || sending || isBlocked) return;
     setSending(true);
-    setText("");
-    const { error } = await supabase.from("messages").insert({
-      sender_id: meId, receiver_id: friend.id, content,
-    });
+    if (!content) setText("");
+    const { error } = await supabase.from("messages").insert({ sender_id: meId, receiver_id: friend.id, content: msg });
     setSending(false);
-    if (error) {
-      toast.error(error.message);
-      setText(content);
-    } else {
-      qc.invalidateQueries({ queryKey: ["messages", meId, friend.id] });
+    if (error) { toast.error(error.message); if (!content) setText(msg); }
+    else qc.invalidateQueries({ queryKey: ["messages", meId, friend.id] });
+  }
+
+  async function deleteMessage(id: string) {
+    const { error } = await supabase.from("messages").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["messages", meId, friend.id] });
+  }
+
+  async function doClearChat() {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("clear_dm_chat", { _other_user: friend.id });
+    setActionLoading(false);
+    if (error) toast.error(error.message);
+    else { toast.success("Chat cleared"); setConfirmClear(false); qc.invalidateQueries({ queryKey: ["messages", meId, friend.id] }); }
+  }
+
+  async function doBlock() {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("block_user", { _target: friend.id });
+    setActionLoading(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`@${friend.username} blocked`);
+      setConfirmBlock(false);
+      qc.invalidateQueries({ queryKey: ["blocked"] });
+      qc.invalidateQueries({ queryKey: ["friendships"] });
+      onChatClosed();
+    }
+  }
+
+  async function doUnblock() {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("unblock_user", { _target: friend.id });
+    setActionLoading(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`@${friend.username} unblocked`);
+      setConfirmUnblock(false);
+      qc.invalidateQueries({ queryKey: ["blocked"] });
+    }
+  }
+
+  async function doDeleteChat() {
+    setActionLoading(true);
+    // Remove friendship + clear messages
+    const { error: clrErr } = await supabase.rpc("clear_dm_chat", { _other_user: friend.id });
+    const { error: fErr } = await supabase.from("friendships").delete()
+      .or(`and(sender_id.eq.${meId},receiver_id.eq.${friend.id}),and(sender_id.eq.${friend.id},receiver_id.eq.${meId})`);
+    setActionLoading(false);
+    if (clrErr || fErr) toast.error(clrErr?.message ?? fErr?.message ?? "Error");
+    else {
+      toast.success("Chat deleted");
+      setConfirmDelete(false);
+      qc.invalidateQueries({ queryKey: ["friendships"] });
+      qc.invalidateQueries({ queryKey: ["messages"] });
+      onChatClosed();
     }
   }
 
   return (
     <>
-      <header className="h-14 px-5 border-b border-border flex items-center gap-3">
-        <div className="relative">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={friend.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(friend.username)}</AvatarFallback>
-          </Avatar>
-          {online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-[color:var(--color-online)]" />}
+      {/* Header */}
+      <header className="h-14 px-5 flex items-center gap-3 shrink-0 border-b"
+        style={{ borderColor: "oklch(0.20 0.016 268)", background: "oklch(0.13 0.015 268)" }}>
+        <div className="relative shrink-0">
+          <UserAvatar src={friend.avatar_url} name={friend.username} />
+          {online && <OnlineDot borderRef="background" />}
         </div>
-        <div className="min-w-0">
-          <div className="font-semibold leading-tight truncate">{friend.display_name || friend.username}</div>
-          <div className="text-xs text-muted-foreground">@{friend.username} · {online ? "online" : "offline"}</div>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold leading-tight">{friend.display_name || friend.username}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <span>@{friend.username}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="flex items-center gap-1" style={{ color: online ? "var(--color-online)" : undefined }}>
+              {online && <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ background: "var(--color-online)" }} />}
+              {online ? "online" : "offline"}
+            </span>
+            {isBlocked && <span className="ml-1 text-destructive text-[10px] font-semibold uppercase tracking-wider">blocked</span>}
+          </div>
         </div>
+
+        {/* Actions menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/8 shrink-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 rounded-xl">
+            <DropdownMenuItem onClick={() => setConfirmClear(true)} className="gap-2 cursor-pointer">
+              <Eraser className="h-4 w-4" /> Clear chat
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+              <Trash className="h-4 w-4" /> Delete chat
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {isBlocked ? (
+              <DropdownMenuItem onClick={() => setConfirmUnblock(true)} className="gap-2 cursor-pointer">
+                <Ban className="h-4 w-4" /> Unblock @{friend.username}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => setConfirmBlock(true)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                <Ban className="h-4 w-4" /> Block @{friend.username}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 min-h-0">
         {msgsQ.isLoading ? (
-          <div className="text-sm text-muted-foreground">Loading messages…</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading messages…</div>
         ) : (msgsQ.data ?? []).length === 0 ? (
-          <div className="h-full grid place-items-center text-center text-sm text-muted-foreground">
+          <div className="h-full grid place-items-center text-center">
             <div>
-              <p>This is the start of your conversation with @{friend.username}.</p>
-              <p className="mt-1">Say hi 👋</p>
+              <div className="mx-auto h-12 w-12 rounded-2xl grid place-items-center mb-4"
+                style={{ background: "oklch(0.65 0.22 280 / 0.1)", border: "1px solid oklch(0.65 0.22 280 / 0.2)" }}>
+                <MessageCircle className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+              </div>
+              <p className="text-sm text-muted-foreground">This is the start of your conversation with @{friend.username}.</p>
+              <p className="text-sm text-muted-foreground mt-1">Say hi 👋</p>
             </div>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {(msgsQ.data ?? []).map((m, i, arr) => {
               const mine = m.sender_id === meId;
               const prev = arr[i - 1];
-              const grouped = prev && prev.sender_id === m.sender_id &&
-                (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000);
+              const grouped = !!(prev && prev.sender_id === m.sender_id && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000));
               return (
-                <li key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-                  <div className={cn(
-                    "max-w-[70%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap break-words",
-                    mine
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-card border border-border rounded-bl-sm",
-                    grouped && (mine ? "rounded-tr-sm" : "rounded-tl-sm")
-                  )}>
-                    {m.content}
-                  </div>
-                </li>
+                <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
+                  onDelete={mine ? () => deleteMessage(m.id) : undefined} />
               );
             })}
           </ul>
         )}
       </div>
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); send(); }}
-        className="border-t border-border p-4 flex items-center gap-2"
-      >
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`Message @${friend.username}`}
-          maxLength={4000}
-          className="h-11"
-          autoFocus
-        />
-        <Button type="submit" size="icon" className="h-11 w-11" disabled={sending || !text.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
+      {/* Input */}
+      {isBlocked ? (
+        <div className="px-5 py-4 border-t flex items-center justify-center gap-2 text-sm text-muted-foreground"
+          style={{ borderColor: "oklch(0.20 0.016 268)", background: "oklch(0.13 0.015 268)" }}>
+          <Ban className="h-4 w-4" />
+          You've blocked this user. <button onClick={() => setConfirmUnblock(true)} className="text-primary hover:underline ml-1">Unblock</button>
+        </div>
+      ) : (
+        <ChatInputBar value={text} onChange={setText} onSend={() => send()} placeholder={`Message @${friend.username}`} sending={sending}
+          onStickerPick={(s) => send(s)} showStickers={showStickers} onToggleStickers={() => setShowStickers((v) => !v)} />
+      )}
+
+      {/* Confirm dialogs */}
+      <ConfirmDialog open={confirmClear} onOpenChange={setConfirmClear} title="Clear chat"
+        description={`This will permanently delete all messages with @${friend.username} for both of you. This cannot be undone.`}
+        confirmLabel="Clear chat" onConfirm={doClearChat} loading={actionLoading} />
+      <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete chat"
+        description={`This will delete the entire conversation and remove @${friend.username} from your friends. You'll need to send a new friend request to chat again.`}
+        confirmLabel="Delete chat" onConfirm={doDeleteChat} loading={actionLoading} />
+      <ConfirmDialog open={confirmBlock} onOpenChange={setConfirmBlock} title={`Block @${friend.username}?`}
+        description="They won't be able to message you and will be removed from your friends. You can unblock them later."
+        confirmLabel="Block user" onConfirm={doBlock} loading={actionLoading} />
+      <ConfirmDialog open={confirmUnblock} onOpenChange={setConfirmUnblock} title={`Unblock @${friend.username}?`}
+        description="You'll need to send a new friend request to chat again." confirmLabel="Unblock" confirmVariant="default"
+        onConfirm={doUnblock} loading={actionLoading} />
     </>
   );
 }
 
-function GroupChatWindow({
-  group, meId, members, profiles, friends, presence, onLeft,
-}: {
+// ─── Group chat window ────────────────────────────────────────
+function GroupChatWindow({ group, meId, members, profiles, friends, presence, onLeft }: {
   group: Group; meId: string; members: GroupMember[];
   profiles: Record<string, Profile>; friends: Profile[];
   presence: Set<string>; onLeft: () => void;
@@ -840,19 +970,21 @@ function GroupChatWindow({
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const meMember = members.find((m) => m.user_id === meId);
   const isAdmin = meMember?.role === "admin";
+  const onlineCount = members.filter((m) => presence.has(m.user_id)).length;
 
   const msgsQ = useQuery({
     queryKey: ["group-messages", group.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("group_messages").select("*")
-        .eq("group_id", group.id)
-        .order("created_at", { ascending: true })
-        .limit(200);
+        .eq("group_id", group.id).order("created_at", { ascending: true }).limit(200);
       if (error) throw error;
       return data as GroupMessage[];
     },
@@ -862,128 +994,200 @@ function GroupChatWindow({
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgsQ.data]);
 
-  async function send() {
-    const content = text.trim();
-    if (!content || sending) return;
+  async function send(content?: string) {
+    const msg = (content ?? text).trim();
+    if (!msg || sending) return;
     setSending(true);
-    setText("");
-    const { error } = await supabase.from("group_messages").insert({
-      group_id: group.id, sender_id: meId, content,
-    });
+    if (!content) setText("");
+    const { error } = await supabase.from("group_messages").insert({ group_id: group.id, sender_id: meId, content: msg });
     setSending(false);
-    if (error) { toast.error(error.message); setText(content); }
+    if (error) { toast.error(error.message); if (!content) setText(msg); }
     else qc.invalidateQueries({ queryKey: ["group-messages", group.id] });
   }
 
-  const memberProfiles = members
-    .map((m) => ({ member: m, profile: m.user_id === meId ? null : profiles[m.user_id] }))
-    .filter((x) => x.member.user_id === meId || x.profile);
+  async function deleteMessage(id: string) {
+    const { error } = await supabase.from("group_messages").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["group-messages", group.id] });
+  }
 
-  const onlineCount = members.filter((m) => presence.has(m.user_id)).length;
+  async function doClearGroupChat() {
+    setActionLoading(true);
+    const { error } = await supabase.rpc("clear_group_chat", { _group_id: group.id });
+    setActionLoading(false);
+    if (error) toast.error(error.message);
+    else { toast.success("Group chat cleared"); setConfirmClear(false); qc.invalidateQueries({ queryKey: ["group-messages", group.id] }); }
+  }
 
   return (
     <>
-      <header className="h-14 px-5 border-b border-border flex items-center gap-3">
-        <Avatar className="h-9 w-9">
-          <AvatarImage src={group.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-primary/20 text-primary text-xs">
-            <UsersRound className="h-4 w-4" />
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold leading-tight truncate">{group.name}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {members.length} member{members.length === 1 ? "" : "s"} · {onlineCount} online
-          </div>
+      <header className="h-14 px-5 flex items-center gap-3 shrink-0 border-b"
+        style={{ borderColor: "oklch(0.20 0.016 268)", background: "oklch(0.13 0.015 268)" }}>
+        <div className="h-9 w-9 rounded-xl grid place-items-center shrink-0"
+          style={{ background: "oklch(0.65 0.22 280 / 0.15)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
+          <UsersRound className="h-4 w-4" style={{ color: "oklch(0.75 0.18 280)" }} />
         </div>
-        <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="Group info" onClick={() => setInfoOpen(true)}>
-          <Settings2 className="h-4 w-4" />
-        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold leading-tight">{group.name}</div>
+          <div className="text-xs text-muted-foreground">{members.length} member{members.length === 1 ? "" : "s"} · {onlineCount} online</div>
+        </div>
+
+        {/* Group actions dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/8 shrink-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 rounded-xl">
+            <DropdownMenuItem onClick={() => setInfoOpen(true)} className="gap-2 cursor-pointer">
+              <Settings2 className="h-4 w-4" /> Group info
+            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => setConfirmClear(true)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                <Eraser className="h-4 w-4" /> Clear all messages
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 min-h-0">
         {msgsQ.isLoading ? (
-          <div className="text-sm text-muted-foreground">Loading messages…</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading messages…</div>
         ) : (msgsQ.data ?? []).length === 0 ? (
-          <div className="h-full grid place-items-center text-center text-sm text-muted-foreground">
+          <div className="h-full grid place-items-center text-center">
             <div>
-              <p>Welcome to <span className="text-foreground font-medium">{group.name}</span>.</p>
-              <p className="mt-1">Be the first to say something 👋</p>
+              <div className="mx-auto h-12 w-12 rounded-2xl grid place-items-center mb-4"
+                style={{ background: "oklch(0.65 0.22 280 / 0.1)", border: "1px solid oklch(0.65 0.22 280 / 0.2)" }}>
+                <UsersRound className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+              </div>
+              <p className="text-sm text-muted-foreground">Welcome to <span className="text-foreground font-medium">{group.name}</span>. Be the first to say something 👋</p>
             </div>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {(msgsQ.data ?? []).map((m, i, arr) => {
               const mine = m.sender_id === meId;
               const sender = profiles[m.sender_id];
               const prev = arr[i - 1];
-              const grouped = prev && prev.sender_id === m.sender_id &&
-                (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000);
+              const grouped = !!(prev && prev.sender_id === m.sender_id && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000));
               return (
-                <li key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
-                  {!mine && !grouped && (
-                    <div className="text-[11px] text-muted-foreground ml-3 mb-0.5">
-                      {sender?.display_name || sender?.username || "Member"}
-                    </div>
-                  )}
-                  <div className={cn(
-                    "max-w-[70%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap break-words",
-                    mine
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-card border border-border rounded-bl-sm",
-                    grouped && (mine ? "rounded-tr-sm" : "rounded-tl-sm")
-                  )}>
-                    {m.content}
-                  </div>
-                </li>
+                <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
+                  senderName={!mine && !grouped ? (sender?.display_name || sender?.username || "Member") : undefined}
+                  onDelete={mine ? () => deleteMessage(m.id) : undefined} />
               );
             })}
           </ul>
         )}
       </div>
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); send(); }}
-        className="border-t border-border p-4 flex items-center gap-2"
-      >
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`Message ${group.name}`}
-          maxLength={4000}
-          className="h-11"
-          autoFocus
-        />
-        <Button type="submit" size="icon" className="h-11 w-11" disabled={sending || !text.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
+      <ChatInputBar value={text} onChange={setText} onSend={() => send()} placeholder={`Message ${group.name}`} sending={sending}
+        onStickerPick={(s) => send(s)} showStickers={showStickers} onToggleStickers={() => setShowStickers((v) => !v)} />
 
-      <GroupInfoDialog
-        open={infoOpen} onOpenChange={setInfoOpen}
-        group={group} meId={meId} isAdmin={isAdmin}
-        memberProfiles={memberProfiles}
-        friends={friends}
-        presence={presence}
-        onLeft={() => { setInfoOpen(false); onLeft(); }}
-      />
+      <GroupInfoDialog open={infoOpen} onOpenChange={setInfoOpen} group={group} meId={meId} isAdmin={isAdmin}
+        memberProfiles={members.map((m) => ({ member: m, profile: m.user_id === meId ? null : profiles[m.user_id] }))}
+        friends={friends} presence={presence} onLeft={() => { setInfoOpen(false); onLeft(); }} />
+
+      <ConfirmDialog open={confirmClear} onOpenChange={setConfirmClear} title="Clear group chat"
+        description="This will permanently delete all messages in this group for everyone. Only admins can do this."
+        confirmLabel="Clear messages" onConfirm={doClearGroupChat} loading={actionLoading} />
     </>
   );
 }
 
-function GroupInfoDialog({
-  open, onOpenChange, group, meId, isAdmin, memberProfiles, friends, presence, onLeft,
-}: {
+// ─── Chat input bar (with sticker picker) ────────────────────
+function ChatInputBar({ value, onChange, onSend, placeholder, sending, onStickerPick, showStickers, onToggleStickers }: {
+  value: string; onChange: (v: string) => void; onSend: () => void;
+  placeholder: string; sending: boolean;
+  onStickerPick: (s: string) => void; showStickers: boolean; onToggleStickers: () => void;
+}) {
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSend(); }}
+      className="px-4 py-4 flex items-center gap-2 shrink-0 border-t relative"
+      style={{ borderColor: "oklch(0.20 0.016 268)", background: "oklch(0.13 0.015 268)" }}>
+      {/* Sticker picker (rendered above the input) */}
+      {showStickers && <StickerPicker onPick={onStickerPick} onClose={onToggleStickers} />}
+
+      {/* Sticker toggle button */}
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={onToggleStickers}
+        className={cn(
+          "h-11 w-11 rounded-xl shrink-0 transition-all",
+          showStickers ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+        )}
+        style={showStickers ? { background: "var(--gradient-primary)" } : {}}
+        aria-label="Stickers"
+        title="Stickers"
+      >
+        <Smile className="h-5 w-5" />
+      </Button>
+
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        maxLength={4000} className="h-11 rounded-xl flex-1" autoFocus />
+
+      <Button type="submit" size="icon"
+        className="h-11 w-11 rounded-xl shrink-0 shadow-[var(--shadow-glow)] transition-all hover:scale-105 active:scale-95"
+        style={{ background: "var(--gradient-primary)" }}
+        disabled={sending || !value.trim()}>
+        <Send className="h-4 w-4" />
+      </Button>
+    </form>
+  );
+}
+
+// ─── Message bubble (with delete on hover) ───────────────────
+function MessageBubble({ content, mine, grouped, senderName, onDelete }: {
+  content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
+
+  return (
+    <li className={cn("flex flex-col group", mine ? "items-end" : "items-start")}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">{senderName}</span>}
+      <div className={cn("flex items-end gap-1.5", mine ? "flex-row-reverse" : "flex-row")}>
+        {/* Delete button (shown on hover for own messages) */}
+        {onDelete && hovered && (
+          <button onClick={onDelete}
+            className="shrink-0 h-6 w-6 rounded-lg grid place-items-center opacity-70 hover:opacity-100 transition-opacity hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+            title="Delete message" aria-label="Delete message">
+            <Trash className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {isSticker ? (
+          <span className="text-4xl leading-none select-none">{content}</span>
+        ) : (
+          <div className={cn("max-w-[70%] px-4 py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
+            style={{
+              background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
+              borderRadius: mine ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px") : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
+              border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
+              boxShadow: mine ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)" : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
+            }}>
+            {content}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// ─── Group info dialog ────────────────────────────────────────
+function GroupInfoDialog({ open, onOpenChange, group, meId, isAdmin, memberProfiles, friends, presence, onLeft }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   group: Group; meId: string; isAdmin: boolean;
   memberProfiles: { member: GroupMember; profile: Profile | null }[];
-  friends: Profile[]; presence: Set<string>;
-  onLeft: () => void;
+  friends: Profile[]; presence: Set<string>; onLeft: () => void;
 }) {
   const qc = useQueryClient();
   const memberIds = new Set(memberProfiles.map((m) => m.member.user_id));
   const addable = friends.filter((f) => !memberIds.has(f.id));
-
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(group.name);
   const [savingName, setSavingName] = useState(false);
@@ -994,125 +1198,92 @@ function GroupInfoDialog({
     const next = nameDraft.trim();
     if (!next || next === group.name) { setEditingName(false); return; }
     setSavingName(true);
-    const { error } = await supabase.from("groups")
-      .update({ name: next, updated_at: new Date().toISOString() })
-      .eq("id", group.id);
+    const { error } = await supabase.from("groups").update({ name: next, updated_at: new Date().toISOString() }).eq("id", group.id);
     setSavingName(false);
     if (error) toast.error(error.message);
-    else {
-      toast.success("Group renamed");
-      setEditingName(false);
-      qc.invalidateQueries({ queryKey: ["groups"] });
-    }
+    else { toast.success("Group renamed"); setEditingName(false); qc.invalidateQueries({ queryKey: ["groups"] }); }
   }
 
   async function setRole(uid: string, role: "admin" | "member") {
-    const { error } = await supabase.from("group_members")
-      .update({ role }).eq("group_id", group.id).eq("user_id", uid);
+    const { error } = await supabase.from("group_members").update({ role }).eq("group_id", group.id).eq("user_id", uid);
     if (error) toast.error(error.message);
-    else {
-      toast.success(role === "admin" ? "Promoted to admin" : "Demoted to member");
-      qc.invalidateQueries({ queryKey: ["group-members"] });
-    }
+    else { toast.success(role === "admin" ? "Promoted to admin" : "Demoted to member"); qc.invalidateQueries({ queryKey: ["group-members"] }); }
   }
 
   async function addMember(uid: string) {
     const { error } = await supabase.from("group_members").insert({ group_id: group.id, user_id: uid, role: "member" });
     if (error) toast.error(error.message);
-    else {
-      toast.success("Member added");
-      qc.invalidateQueries({ queryKey: ["group-members"] });
-    }
+    else { toast.success("Member added"); qc.invalidateQueries({ queryKey: ["group-members"] }); }
   }
+
   async function removeMember(uid: string) {
-    const { error } = await supabase.from("group_members").delete()
-      .eq("group_id", group.id).eq("user_id", uid);
+    const { error } = await supabase.from("group_members").delete().eq("group_id", group.id).eq("user_id", uid);
     if (error) toast.error(error.message);
     else qc.invalidateQueries({ queryKey: ["group-members"] });
   }
+
   async function leave() {
-    const { error } = await supabase.from("group_members").delete()
-      .eq("group_id", group.id).eq("user_id", meId);
+    const { error } = await supabase.from("group_members").delete().eq("group_id", group.id).eq("user_id", meId);
     if (error) toast.error(error.message);
-    else {
-      toast.success("You left the group");
-      qc.invalidateQueries({ queryKey: ["group-members"] });
-      qc.invalidateQueries({ queryKey: ["groups"] });
-      onLeft();
-    }
+    else { toast.success("You left the group"); qc.invalidateQueries({ queryKey: ["group-members"] }); qc.invalidateQueries({ queryKey: ["groups"] }); onLeft(); }
   }
+
   async function deleteGroup() {
     if (!confirm(`Delete "${group.name}"? This cannot be undone.`)) return;
     const { error } = await supabase.from("groups").delete().eq("id", group.id);
     if (error) toast.error(error.message);
-    else {
-      toast.success("Group deleted");
-      qc.invalidateQueries({ queryKey: ["groups"] });
-      onLeft();
-    }
+    else { toast.success("Group deleted"); qc.invalidateQueries({ queryKey: ["groups"] }); onLeft(); }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-2xl">
         <DialogHeader>
           {editingName ? (
             <div className="flex items-center gap-2">
-              <Input
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                maxLength={80}
-                autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") { setEditingName(false); setNameDraft(group.name); } }}
-              />
-              <Button size="sm" onClick={saveName} disabled={savingName}>Save</Button>
+              <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={80} autoFocus className="rounded-xl"
+                onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") { setEditingName(false); setNameDraft(group.name); } }} />
+              <Button size="sm" onClick={saveName} disabled={savingName} style={{ background: "var(--gradient-primary)" }}>Save</Button>
               <Button size="sm" variant="ghost" onClick={() => { setEditingName(false); setNameDraft(group.name); }}>Cancel</Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <DialogTitle className="flex-1">{group.name}</DialogTitle>
               {isAdmin && (
-                <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Rename group" onClick={() => setEditingName(true)}>
+                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => setEditingName(true)} aria-label="Rename">
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
           )}
           {group.description && <DialogDescription>{group.description}</DialogDescription>}
-          {!isAdmin && (
-            <DialogDescription className="text-xs">Only admins can rename, manage members, change roles, or delete this group.</DialogDescription>
-          )}
+          {!isAdmin && <DialogDescription className="text-xs">Only admins can rename, manage members, or delete this group.</DialogDescription>}
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-              Members ({memberProfiles.length})
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-2 flex items-center gap-1.5">
+              <Users className="h-3 w-3" /> Members ({memberProfiles.length})
             </div>
-            <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-border divide-y divide-border">
               {memberProfiles.map(({ member, profile }) => {
                 const isMe = member.user_id === meId;
-                const p = isMe ? null : profile!;
-                const name = isMe ? "You" : (p?.display_name || p?.username || "Member");
-                const handle = isMe ? "" : `@${p?.username ?? ""}`;
+                const name = isMe ? "You" : (profile?.display_name || profile?.username || "Member");
+                const handle = isMe ? "" : `@${profile?.username ?? ""}`;
                 return (
-                  <div key={member.user_id} className="flex items-center gap-3 px-3 py-2">
-                    <div className="relative">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={p?.avatar_url ?? undefined} />
-                        <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
-                          {initials(p?.username ?? "me")}
-                        </AvatarFallback>
-                      </Avatar>
-                      {presence.has(member.user_id) && (
-                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-[color:var(--color-online)]" />
-                      )}
+                  <div key={member.user_id} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="relative shrink-0">
+                      <UserAvatar src={profile?.avatar_url} name={profile?.username ?? "me"} size="sm" />
+                      {presence.has(member.user_id) && <OnlineDot size="sm" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium flex items-center gap-2">
                         {name}
                         {member.role === "admin" && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase tracking-wider">Admin</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider"
+                            style={{ background: "oklch(0.65 0.22 280 / 0.15)", color: "oklch(0.78 0.18 280)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
+                            Admin
+                          </span>
                         )}
                       </div>
                       {handle && <div className="truncate text-xs text-muted-foreground">{handle}</div>}
@@ -1120,22 +1291,11 @@ function GroupInfoDialog({
                     {isAdmin && !isMe && (
                       <>
                         {member.role === "member" ? (
-                          <Button size="icon" variant="ghost" className="h-8 w-8"
-                            aria-label="Promote to admin" title="Promote to admin"
-                            onClick={() => setRole(member.user_id, "admin")}>
-                            <Shield className="h-4 w-4" />
-                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" aria-label="Promote" title="Promote to admin" onClick={() => setRole(member.user_id, "admin")}><Shield className="h-4 w-4" /></Button>
                         ) : (
-                          <Button size="icon" variant="ghost" className="h-8 w-8"
-                            aria-label="Demote to member" title="Demote to member"
-                            onClick={() => setRole(member.user_id, "member")}>
-                            <ShieldOff className="h-4 w-4" />
-                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" aria-label="Demote" title="Demote to member" onClick={() => setRole(member.user_id, "member")}><ShieldOff className="h-4 w-4" /></Button>
                         )}
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
-                          onClick={() => removeMember(member.user_id)} aria-label="Remove">
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => removeMember(member.user_id)} aria-label="Remove"><X className="h-4 w-4" /></Button>
                       </>
                     )}
                   </div>
@@ -1146,24 +1306,21 @@ function GroupInfoDialog({
 
           {isAdmin && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                Add friends
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-2 flex items-center gap-1.5">
+                <UserPlus className="h-3 w-3" /> Add friends
               </div>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              <div className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border">
                 {addable.length === 0 ? (
                   <p className="text-xs text-muted-foreground p-3">No more friends to add.</p>
                 ) : addable.map((f) => (
                   <div key={f.id} className="flex items-center gap-3 px-3 py-2">
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={f.avatar_url ?? undefined} />
-                      <AvatarFallback className="bg-primary/20 text-primary text-[10px]">{initials(f.username)}</AvatarFallback>
-                    </Avatar>
+                    <UserAvatar src={f.avatar_url} name={f.username} size="sm" />
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="truncate font-medium">{f.display_name || f.username}</div>
                       <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => addMember(f.id)}>
-                      <UserPlus className="h-4 w-4 mr-1" /> Add
+                    <Button size="sm" variant="ghost" className="rounded-lg text-xs gap-1.5" onClick={() => addMember(f.id)}>
+                      <UserPlus className="h-3.5 w-3.5" /> Add
                     </Button>
                   </div>
                 ))}
@@ -1175,13 +1332,13 @@ function GroupInfoDialog({
         <DialogFooter className="flex sm:justify-between gap-2">
           <div>
             {isAdmin && (
-              <Button variant="ghost" className="text-destructive" onClick={deleteGroup}>
-                <Trash2 className="h-4 w-4 mr-1" /> Delete group
+              <Button variant="ghost" className="text-destructive hover:bg-destructive/10 gap-1.5" onClick={deleteGroup}>
+                <Trash2 className="h-4 w-4" /> Delete group
               </Button>
             )}
           </div>
-          <Button variant="ghost" onClick={leave}>
-            <LeaveIcon className="h-4 w-4 mr-1" /> Leave group
+          <Button variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={leave}>
+            <LeaveIcon className="h-4 w-4" /> Leave group
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_users: {
+        Row: {
+          blocker_id: string
+          blocked_id: string
+          created_at: string
+        }
+        Insert: {
+          blocker_id: string
+          blocked_id: string
+          created_at?: string
+        }
+        Update: {
+          blocker_id?: string
+          blocked_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       friendships: {
         Row: {
           created_at: string
@@ -201,6 +219,10 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { a: string; b: string }; Returns: boolean }
+      block_user: { Args: { _target: string }; Returns: void }
+      unblock_user: { Args: { _target: string }; Returns: void }
+      clear_dm_chat: { Args: { _other_user: string }; Returns: void }
+      clear_group_chat: { Args: { _group_id: string }; Returns: void }
       create_group: {
         Args: { _description?: string; _name: string }
         Returns: {
