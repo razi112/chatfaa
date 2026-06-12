@@ -1144,32 +1144,38 @@ function ChatInputBar({ value, onChange, onSend, placeholder, sending, onSticker
 function MessageBubble({ content, mine, grouped, senderName, onDelete }: {
   content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
 
   return (
-    <li className={cn("flex flex-col group", mine ? "items-end" : "items-start")}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <li className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
       {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">{senderName}</span>}
-      <div className={cn("flex items-end gap-1.5", mine ? "flex-row-reverse" : "flex-row")}>
-        {/* Delete button (shown on hover for own messages) */}
-        {onDelete && hovered && (
-          <button onClick={onDelete}
-            className="shrink-0 h-6 w-6 rounded-lg grid place-items-center opacity-70 hover:opacity-100 transition-opacity hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
-            title="Delete message" aria-label="Delete message">
+      {/* Outer row: always reserves space for delete button so bubble width never shifts */}
+      <div className={cn("group flex items-end gap-1.5 max-w-[80%]", mine ? "flex-row-reverse" : "flex-row")}>
+        {/* Delete button — always in DOM, toggled via opacity so layout is stable */}
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="shrink-0 h-6 w-6 rounded-lg grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+            title="Delete message"
+            aria-label="Delete message"
+          >
             <Trash className="h-3.5 w-3.5" />
           </button>
         )}
         {isSticker ? (
           <span className="text-4xl leading-none select-none">{content}</span>
         ) : (
-          <div className={cn("max-w-[70%] px-4 py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
+          <div
+            className={cn("min-w-0 px-4 py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
             style={{
               background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
-              borderRadius: mine ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px") : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
+              borderRadius: mine
+                ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px")
+                : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
               border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
               boxShadow: mine ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)" : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
-            }}>
+            }}
+          >
             {content}
           </div>
         )}
