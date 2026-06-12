@@ -460,8 +460,9 @@ function CreateGroupDialog({
     // server-side and atomically creates the group + creator-as-admin row.
     const { data: g, error } = await supabase.rpc("create_group", {
       _name: trimmed,
-      _description: desc.trim() || null,
+      _description: desc.trim() || undefined,
     });
+
     if (error || !g) {
       setBusy(false);
       toast.error(error?.message ?? "Could not create group");
