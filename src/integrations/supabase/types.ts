@@ -246,6 +246,19 @@ export type Database = {
           status: string
           updated_at: string
           username: string
+          website: string | null
+          gender: string | null
+          gender_custom: string | null
+          account_type: string
+          phone: string | null
+          two_fa_enabled: boolean
+          notif_prefs: Json
+          content_prefs: Json
+          story_privacy: string
+          reel_privacy: string
+          tag_permissions: string
+          hidden_words: string[]
+          deactivated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -259,6 +272,19 @@ export type Database = {
           status?: string
           updated_at?: string
           username: string
+          website?: string | null
+          gender?: string | null
+          gender_custom?: string | null
+          account_type?: string
+          phone?: string | null
+          two_fa_enabled?: boolean
+          notif_prefs?: Json
+          content_prefs?: Json
+          story_privacy?: string
+          reel_privacy?: string
+          tag_permissions?: string
+          hidden_words?: string[]
+          deactivated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -272,6 +298,19 @@ export type Database = {
           status?: string
           updated_at?: string
           username?: string
+          website?: string | null
+          gender?: string | null
+          gender_custom?: string | null
+          account_type?: string
+          phone?: string | null
+          two_fa_enabled?: boolean
+          notif_prefs?: Json
+          content_prefs?: Json
+          story_privacy?: string
+          reel_privacy?: string
+          tag_permissions?: string
+          hidden_words?: string[]
+          deactivated_at?: string | null
         }
         Relationships: []
       }
@@ -343,6 +382,25 @@ export type Database = {
       get_email_by_username: { Args: { _username: string }; Returns: string | null }
       change_username: { Args: { _new_username: string }; Returns: void }
       delete_own_account: { Args: Record<string, never>; Returns: void }
+      deactivate_own_account: { Args: Record<string, never>; Returns: void }
+      update_notif_prefs: { Args: { _prefs: Json }; Returns: void }
+      update_content_prefs: { Args: { _prefs: Json }; Returns: void }
+      get_blocked_users: {
+        Args: Record<string, never>
+        Returns: Array<{ id: string; username: string; display_name: string | null; avatar_url: string | null; blocked_at: string }>
+      }
+      get_restricted_users: {
+        Args: Record<string, never>
+        Returns: Array<{ id: string; username: string; display_name: string | null; avatar_url: string | null; restricted_at: string }>
+      }
+      get_muted_users: {
+        Args: Record<string, never>
+        Returns: Array<{ id: string; username: string; display_name: string | null; avatar_url: string | null; muted_at: string }>
+      }
+      restrict_user: { Args: { _target: string }; Returns: void }
+      unrestrict_user: { Args: { _target: string }; Returns: void }
+      mute_user: { Args: { _target: string }; Returns: void }
+      unmute_user: { Args: { _target: string }; Returns: void }
       create_group: {
         Args: { _description?: string; _name: string }
         Returns: {

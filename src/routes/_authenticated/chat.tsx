@@ -275,7 +275,7 @@ function ChatApp() {
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={handleSelect} presence={presence} blockedIds={blockedIds} />}
+        {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={handleSelect} presence={presence} blockedIds={blockedIds} meId={user.id} />}
         {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { handleSelect({ type: "dm", id }); setTab("chats"); }} />}
         {tab === "search" && <SearchUsers meId={user.id} />}
       </ScrollArea>
@@ -387,7 +387,7 @@ function ChatApp() {
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
-              {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} />}
+              {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} meId={user.id} />}
               {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }} />}
               {tab === "search" && <SearchUsers meId={user.id} />}
             </ScrollArea>
@@ -913,12 +913,78 @@ function SectionLabel({ icon: Icon, label }: { icon: typeof Users; label: string
 }
 
 // ─── Chats list ───────────────────────────────────────────────
-function ChatsList({ friends, groups, active, onSelect, presence, blockedIds }: {
+function ChatsList({ friends, groups, active, onSelect, presence, blockedIds, meId }: {
   friends: Profile[]; groups: Group[]; active: Active;
   onSelect: (a: Active) => void; presence: Set<string>; blockedIds: Set<string>;
+  meId: string;
 }) {
   const visibleFriends = friends.filter((f) => !blockedIds.has(f.id));
-  if (visibleFriends.length === 0 && groups.length === 0) {
+
+  // Fetch last message + unread count for every DM in one query
+  const dmPreviewQ = useQuery({
+    queryKey: ["dm-previews", meId, visibleFriends.map((f) => f.id).join(",")],
+    enabled: visibleFriends.length > 0,
+    refetchInterval: false,
+    queryFn: async () => {
+      if (visibleFriends.length === 0) return {} as Record<string, { lastMsg: Message; unread: number }>;
+      // Pull the last 1 message per conversation + unread count
+      const friendIds = visibleFriends.map((f) => f.id);
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .or(
+          friendIds
+            .map((id) => `and(sender_id.eq.${meId},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${meId})`)
+            .join(",")
+        )
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error || !data) return {} as Record<string, { lastMsg: Message; unread: number }>;
+      const msgs = data as Message[];
+      const result: Record<string, { lastMsg: Message; unread: number }> = {};
+      for (const fId of friendIds) {
+        const thread = msgs.filter(
+          (m) => (m.sender_id === meId && m.receiver_id === fId) || (m.sender_id === fId && m.receiver_id === meId)
+        );
+        if (thread.length === 0) continue;
+        const unread = thread.filter((m) => m.sender_id === fId && m.receiver_id === meId && !m.read_at).length;
+        result[fId] = { lastMsg: thread[0], unread };
+      }
+      return result;
+    },
+  });
+
+  // Re-fetch previews whenever messages change — subscribe directly to the realtime invalidations
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!meId || visibleFriends.length === 0) return;
+    const ch = supabase.channel(`rt-dm-previews-${meId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${meId}` },
+        () => qc.invalidateQueries({ queryKey: ["dm-previews"] })
+      )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `sender_id=eq.${meId}` },
+        () => qc.invalidateQueries({ queryKey: ["dm-previews"] })
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch).catch(() => {}); };
+  }, [meId, qc]);
+
+  const previews = dmPreviewQ.data ?? {};
+
+  // Sort friends: unread first, then by last message time
+  const sortedFriends = [...visibleFriends].sort((a, b) => {
+    const pa = previews[a.id]; const pb = previews[b.id];
+    if (!pa && !pb) return 0;
+    if (!pa) return 1;
+    if (!pb) return -1;
+    if (pa.unread > 0 && pb.unread === 0) return -1;
+    if (pb.unread > 0 && pa.unread === 0) return 1;
+    return new Date(pb.lastMsg.created_at).getTime() - new Date(pa.lastMsg.created_at).getTime();
+  });
+
+  if (sortedFriends.length === 0 && groups.length === 0) {
     return (
       <div className="p-6 text-center">
         <div className="mx-auto h-12 w-12 rounded-2xl grid place-items-center mb-4"
@@ -929,6 +995,27 @@ function ChatsList({ friends, groups, active, onSelect, presence, blockedIds }: 
       </div>
     );
   }
+
+  function previewText(msg: Message): string {
+    const isMe = msg.sender_id === meId;
+    const isEmoji = msg.content.length <= 4 && /^\p{Emoji}/u.test(msg.content);
+    const text = isEmoji ? msg.content : msg.content.slice(0, 40) + (msg.content.length > 40 ? "…" : "");
+    return isMe ? `You: ${text}` : text;
+  }
+
+  function timeLabel(iso: string): string {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "now";
+    if (diffMin < 60) return `${diffMin}m`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h`;
+    if (diffH < 48) return "Yesterday";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
   return (
     <div className="p-3 space-y-5">
       {groups.length > 0 && (
@@ -947,7 +1034,7 @@ function ChatsList({ friends, groups, active, onSelect, presence, blockedIds }: 
                       style={{ background: "oklch(0.65 0.22 280 / 0.15)", border: "1px solid oklch(0.65 0.22 280 / 0.2)" }}>
                       <UsersRound className="h-4 w-4" style={{ color: "oklch(0.75 0.18 280)" }} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="truncate font-medium text-sm">{g.name}</div>
                       <div className="truncate text-xs text-muted-foreground">Group chat</div>
                     </div>
@@ -958,26 +1045,62 @@ function ChatsList({ friends, groups, active, onSelect, presence, blockedIds }: 
           </ul>
         </div>
       )}
-      {visibleFriends.length > 0 && (
+      {sortedFriends.length > 0 && (
         <div>
           <SectionLabel icon={Hash} label="Direct messages" />
           <ul className="space-y-0.5 mt-1">
-            {visibleFriends.map((f) => {
+            {sortedFriends.map((f) => {
               const isActive = active?.type === "dm" && active.id === f.id;
               const online = presence.has(f.id);
+              const preview = previews[f.id];
+              const unread = preview?.unread ?? 0;
+              const hasUnread = unread > 0 && !isActive;
               return (
                 <li key={f.id}>
-                  <button onClick={() => onSelect({ type: "dm", id: f.id })}
-                    className={cn("w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                  <button
+                    onClick={() => onSelect({ type: "dm", id: f.id })}
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150",
                       isActive ? "text-white" : "text-foreground/80 hover:bg-white/5 hover:text-foreground"
-                    )} style={isActive ? { background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.2), oklch(0.70 0.18 310 / 0.15))", border: "1px solid oklch(0.65 0.22 280 / 0.25)" } : { border: "1px solid transparent" }}>
+                    )}
+                    style={
+                      isActive
+                        ? { background: "linear-gradient(135deg, oklch(0.65 0.22 280 / 0.2), oklch(0.70 0.18 310 / 0.15))", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }
+                        : { border: "1px solid transparent" }
+                    }
+                  >
                     <div className="relative shrink-0">
                       <UserAvatar src={f.avatar_url} name={f.username} />
                       {online && <OnlineDot />}
                     </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-sm">{f.display_name || f.username}</div>
-                      <div className="truncate text-xs text-muted-foreground">@{f.username}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={cn("truncate text-sm", hasUnread ? "font-semibold text-foreground" : "font-medium")}>
+                          {f.display_name || f.username}
+                        </span>
+                        {preview && (
+                          <span className={cn("text-[10px] shrink-0", hasUnread ? "text-primary font-semibold" : "text-muted-foreground")}>
+                            {timeLabel(preview.lastMsg.created_at)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        {preview ? (
+                          <span className={cn("truncate text-xs", hasUnread ? "text-foreground/80" : "text-muted-foreground")}>
+                            {previewText(preview.lastMsg)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">@{f.username}</span>
+                        )}
+                        {hasUnread && (
+                          <span
+                            className="shrink-0 h-5 min-w-5 px-1 rounded-full text-[10px] font-bold text-white grid place-items-center"
+                            style={{ background: "var(--gradient-primary)" }}
+                          >
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -1297,25 +1420,22 @@ function ChatInputBar({ value, onChange, onSend, placeholder, sending, onSticker
 
 // ─── Read receipt tick ────────────────────────────────────────
 function ReadTick({ readAt }: { readAt: string | null | undefined }) {
-  // Only shown on sent (mine) messages
   if (readAt) {
-    // Double tick — seen (blue/teal)
+    // Double tick — seen (blue)
     return (
-      <span className="inline-flex items-center shrink-0 ml-1" title="Seen">
-        <svg width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden>
-          {/* First tick */}
-          <path d="M1 5l3 3 5-6" stroke="oklch(0.72 0.18 200)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          {/* Second tick (offset right) */}
-          <path d="M5 5l3 3 5-6" stroke="oklch(0.72 0.18 200)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <span className="inline-flex items-center shrink-0" title="Seen">
+        <svg width="18" height="11" viewBox="0 0 18 11" fill="none" aria-hidden>
+          <path d="M1 5.5l3.5 3.5L11 2" stroke="oklch(0.65 0.20 230)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 5.5l3.5 3.5L16 2" stroke="oklch(0.65 0.20 230)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
     );
   }
-  // Single tick — delivered (muted white)
+  // Single tick — sent/delivered (muted)
   return (
-    <span className="inline-flex items-center shrink-0 ml-1" title="Sent">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-        <path d="M1 5l3 3 5-6" stroke="oklch(0.80 0 0 / 0.55)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <span className="inline-flex items-center shrink-0" title="Delivered">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+        <path d="M1 5.5l3.5 3.5L10 2" stroke="oklch(0.75 0 0 / 0.50)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
   );
@@ -1327,8 +1447,8 @@ function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, i
   readAt?: string | null; isLast?: boolean;
 }) {
   const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
-  // Show tick only on last sent message in a DM (not in group chats)
-  const showTick = mine && isLast && readAt !== undefined;
+  // Show tick on every sent message in a DM (readAt !== undefined means it's a DM sent by me)
+  const showTick = mine && readAt !== undefined;
 
   return (
     <li className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
@@ -1345,21 +1465,27 @@ function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, i
           <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
             <span className="text-4xl leading-none select-none">{content}</span>
             {showTick && (
-              <div className="mt-0.5"><ReadTick readAt={readAt} /></div>
+              <div className="mt-0.5 mr-0.5"><ReadTick readAt={readAt} /></div>
             )}
           </div>
         ) : (
-          <div className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
+          <div
+            className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
             style={{
               background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
-              borderRadius: mine ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px") : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
+              borderRadius: mine
+                ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px")
+                : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
               border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
-              boxShadow: mine ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)" : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
-            }}>
-            {/* Content + tick inline at bottom-right */}
-            {content}
+              boxShadow: mine
+                ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)"
+                : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
+            }}
+          >
+            {/* Text + tick sit on the same line; tick floats to bottom-right */}
+            <span>{content}</span>
             {showTick && (
-              <span className="inline-flex items-end ml-2 -mb-0.5 align-bottom">
+              <span className="inline-flex items-end ml-1.5 -mb-0.5 align-bottom opacity-90">
                 <ReadTick readAt={readAt} />
               </span>
             )}
@@ -1384,6 +1510,20 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
   const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Track whether user is scrolled near the bottom
+  const [atBottom, setAtBottom] = useState(true);
+  const atBottomRef = useRef(true); // ref for use inside effects without stale closure
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const prevMsgCount = useRef(0);
+
+  // Reset state when switching to a different friend
+  useEffect(() => {
+    setAtBottom(true);
+    atBottomRef.current = true;
+    setNewMsgCount(0);
+    prevMsgCount.current = 0;
+  }, [friend.id]);
+
   const msgsQ = useQuery({
     queryKey: ["messages", meId, friend.id],
     queryFn: async () => {
@@ -1394,7 +1534,59 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
     },
   });
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgsQ.data]);
+  // Handle new messages arriving
+  useEffect(() => {
+    if (!msgsQ.data) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const total = msgsQ.data.length;
+
+    if (prevMsgCount.current === 0) {
+      // Initial load — jump to bottom immediately
+      el.scrollTop = el.scrollHeight;
+      prevMsgCount.current = total;
+      return;
+    }
+
+    const added = total - prevMsgCount.current;
+    prevMsgCount.current = total;
+    if (added <= 0) return;
+
+    const newestMsg = msgsQ.data[msgsQ.data.length - 1];
+    const isMine = newestMsg?.sender_id === meId;
+
+    if (atBottomRef.current || isMine) {
+      // Auto-scroll: at bottom OR we just sent a message
+      el.scrollTop = el.scrollHeight;
+      setNewMsgCount(0);
+    } else {
+      // User is scrolled up — count incoming messages for banner
+      const newIncoming = msgsQ.data.slice(-added).filter((m) => m.sender_id === friend.id).length;
+      if (newIncoming > 0) setNewMsgCount((n) => n + newIncoming);
+    }
+  }, [msgsQ.data, friend.id, meId]);
+
+  // Track scroll position
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onScroll() {
+      const threshold = 80;
+      const bottom = el!.scrollHeight - el!.scrollTop - el!.clientHeight < threshold;
+      atBottomRef.current = bottom;
+      setAtBottom(bottom);
+      if (bottom) setNewMsgCount(0);
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  function scrollToBottom() {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    setNewMsgCount(0);
+  }
+
+  // Mark incoming messages as read when visible
   useEffect(() => {
     const unread = (msgsQ.data ?? []).filter((m) => m.receiver_id === meId && !m.read_at);
     if (unread.length === 0) return;
@@ -1446,7 +1638,7 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
   }
 
   return (
-    <>
+    <div className="relative flex flex-col flex-1 min-h-0">
       <ChatHeader onBack={onBack}>
         <div className="relative shrink-0">
           <UserAvatar src={friend.avatar_url} name={friend.username} />
@@ -1479,6 +1671,20 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
           </DropdownMenuContent>
         </DropdownMenu>
       </ChatHeader>
+
+      {/* New message banner — shown when user is scrolled up and new messages arrive */}
+      {newMsgCount > 0 && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2"
+          style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 20px -4px oklch(0.65 0.22 280 / 0.6)" }}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path d="M6 2v8M2 7l4 4 4-4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {newMsgCount} new message{newMsgCount > 1 ? "s" : ""}
+        </button>
+      )}
 
       <MessageList scrollRef={scrollRef} loading={msgsQ.isLoading}>
         {(msgsQ.data ?? []).length === 0 && !msgsQ.isLoading ? (
@@ -1525,7 +1731,7 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
       <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete chat" description={`Delete all messages and remove @${friend.username} from friends?`} confirmLabel="Delete chat" onConfirm={doDeleteChat} loading={actionLoading} />
       <ConfirmDialog open={confirmBlock} onOpenChange={setConfirmBlock} title={`Block @${friend.username}?`} description="They'll be removed from your friends." confirmLabel="Block" onConfirm={doBlock} loading={actionLoading} />
       <ConfirmDialog open={confirmUnblock} onOpenChange={setConfirmUnblock} title={`Unblock @${friend.username}?`} description="You'll need to re-add them as a friend to chat." confirmLabel="Unblock" confirmVariant="default" onConfirm={doUnblock} loading={actionLoading} />
-    </>
+    </div>
   );
 }
 
