@@ -190,7 +190,7 @@ function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground overflow-hidden">
+    <div className="min-h-screen flex bg-background text-foreground overflow-x-hidden">
       {/* Ambient orbs */}
       <div className="fixed inset-0 pointer-events-none" aria-hidden>
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full"
@@ -244,13 +244,13 @@ function AuthPage() {
       </div>
 
       {/* Right — form panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
+      <div className="flex-1 flex items-center justify-center px-4 py-8 relative z-10 overflow-y-auto">
         <div className="w-full max-w-md">
           <Link to="/" className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to home
           </Link>
 
-          <div className="rounded-3xl p-8"
+          <div className="rounded-3xl p-5 sm:p-8"
             style={{
               background: "linear-gradient(145deg, oklch(0.16 0.016 268 / 0.95), oklch(0.13 0.014 268 / 0.98))",
               border: "1px solid oklch(0.28 0.018 268 / 0.7)",

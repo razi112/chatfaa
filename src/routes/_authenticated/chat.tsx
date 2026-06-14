@@ -441,7 +441,7 @@ function ChatApp() {
 
       {/* ── Mobile bottom nav (when no chat open) ── */}
       {isMobile && !active && (
-        <nav className="fixed bottom-0 left-0 right-0 flex border-t z-40"
+        <nav className="fixed bottom-0 left-0 right-0 flex border-t z-40 bottom-nav"
           style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
           <Link to="/feed" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
             <Home className="h-5 w-5" />

@@ -128,6 +128,16 @@ function ReelsPage() {
      */
     <div className="h-[100dvh] w-full bg-black flex items-center justify-center overflow-hidden relative">
 
+      {/* ── Back button (top-left, above everything) ── */}
+      <Link
+        to="/feed"
+        className="absolute top-4 left-4 z-50 flex items-center justify-center h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 transition-all"
+        style={{ marginTop: "env(safe-area-inset-top)" }}
+        aria-label="Back to feed"
+      >
+        <ArrowLeft className="h-5 w-5 text-white" />
+      </Link>
+
       {/* ── Empty state ── */}
       {reels.length === 0 && !reelsQ.isLoading && (
         <div className="text-center px-6 z-10">
@@ -156,7 +166,7 @@ function ReelsPage() {
         <>
           <div
             ref={containerRef}
-            className="relative overflow-y-scroll snap-y snap-mandatory"
+            className="relative overflow-y-scroll snap-y snap-mandatory no-overscroll"
             style={{
               width: "min(100vw, calc(100dvh * 9 / 16))",
               height: "100dvh",
@@ -180,32 +190,13 @@ function ReelsPage() {
             ))}
           </div>
 
-          {/* Up / down nav — outside the reel frame on desktop */}
-          {reels.length > 1 && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2
-                            sm:right-[calc(50%-min(50vw,calc(100dvh*9/32))-44px)]">
-              <button
-                onClick={() => setActiveIndex((i) => Math.max(i - 1, 0))}
-                disabled={activeIndex === 0}
-                className="h-9 w-9 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all"
-              >
-                <ChevronUp className="h-4 w-4 text-white" />
-              </button>
-              <button
-                onClick={() => setActiveIndex((i) => Math.min(i + 1, reels.length - 1))}
-                disabled={activeIndex === reels.length - 1}
-                className="h-9 w-9 rounded-full grid place-items-center bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all"
-              >
-                <ChevronDown className="h-4 w-4 text-white" />
-              </button>
-            </div>
-          )}
+
         </>
       )}
 
       {/* ── Left Sidebar rail (mirrors chat sidebar) ── */}
       <aside
-        className="absolute left-0 top-0 h-full z-30 flex flex-col items-center py-4 gap-2 border-r overflow-hidden transition-all duration-300"
+        className="reels-sidebar absolute left-0 top-0 h-full z-30 flex flex-col items-center py-4 gap-2 border-r overflow-hidden transition-all duration-300"
         style={{
           width: sidebarOpen ? "60px" : "0px",
           opacity: sidebarOpen ? 1 : 0,
@@ -263,7 +254,7 @@ function ReelsPage() {
         onClick={() => setSidebarOpen((v) => !v)}
         aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
         title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-        className="absolute z-40 top-4 flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 text-white/70 hover:text-white hover:bg-white/15"
+        className="reels-toggle absolute z-40 top-4 flex items-center justify-center h-7 w-7 rounded-full transition-all duration-300 text-white/70 hover:text-white hover:bg-white/15"
         style={{ left: sidebarOpen ? "68px" : "8px" }}
       >
         {sidebarOpen
@@ -436,8 +427,12 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
       )}
 
       {/* ── Bottom info bar ── */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-6 pt-16"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
+      <div className="absolute left-0 right-0 z-10 px-4 pt-16"
+        style={{
+          bottom: 0,
+          paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))",
+          background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)"
+        }}>
         {/* User info */}
         <div className="flex items-center gap-2.5 mb-3">
           <Link to="/profile" search={{ userId: reel.user_id }}>
@@ -462,7 +457,8 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
       </div>
 
       {/* ── Right action rail ── */}
-      <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-5">
+      <div className="absolute right-3 z-10 flex flex-col items-center gap-5"
+        style={{ bottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
         {/* Like */}
         <button onClick={toggleLike} className="flex flex-col items-center gap-1 group">
           <div className="h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90">

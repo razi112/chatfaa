@@ -98,7 +98,7 @@ function Landing() {
       </div>
 
       {/* Nav */}
-      <header className="relative z-20 flex items-center justify-between px-6 md:px-14 py-5">
+      <header className="relative z-20 flex items-center justify-between px-4 sm:px-6 md:px-14 py-4 sm:py-5">
         <div className="flex items-center gap-3">
           <div
             className="grid h-10 w-10 place-items-center rounded-2xl shadow-[var(--shadow-glow)]"
@@ -128,7 +128,7 @@ function Landing() {
 
       <main className="relative z-10">
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-6 pt-20 pb-28 text-center md:pt-32">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14 pb-20 sm:pt-20 sm:pb-28 text-center md:pt-32">
           {/* Badge */}
           <div className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-xs font-medium mb-8"
             style={{
@@ -141,9 +141,9 @@ function Landing() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6">
             Chat with anyone,
-            <br />
+            <br className="hidden sm:block" />
             <span
               className="bg-clip-text text-transparent"
               style={{ backgroundImage: "var(--gradient-primary)" }}
@@ -152,27 +152,27 @@ function Landing() {
             </span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-lg md:text-xl text-muted-foreground leading-relaxed mb-12">
+          <p className="mx-auto max-w-2xl text-base md:text-xl text-muted-foreground leading-relaxed mb-10 sm:mb-12">
             Chatfaa is a fast, private messenger built for friends, gamers, and study groups.
             Find anyone by username — no phone, no drama. Just conversations.
           </p>
 
       {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Link to="/auth" search={{ mode: "signup" } as never}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 sm:mb-16 px-4 sm:px-0">
+            <Link to="/auth" search={{ mode: "signup" } as never} className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="h-13 px-8 text-base gap-2.5 shadow-[var(--shadow-glow)]"
+                className="w-full sm:w-auto h-13 px-8 text-base gap-2.5 shadow-[var(--shadow-glow)]"
                 style={{ background: "var(--gradient-primary)" }}
               >
                 Create your @username <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/auth">
+            <Link to="/auth" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="h-13 px-8 text-base border-border/60 hover:bg-card"
+                className="w-full sm:w-auto h-13 px-8 text-base border-border/60 hover:bg-card"
               >
                 I already have an account
               </Button>
@@ -196,7 +196,7 @@ function Landing() {
         </section>
 
         {/* Mock chat preview */}
-        <section className="mx-auto max-w-4xl px-6 pb-28 flex justify-center">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 pb-20 sm:pb-28 flex justify-center">
           <div
             className="w-full rounded-3xl overflow-hidden shadow-[0_40px_120px_-20px_oklch(0_0_0/0.7)]"
             style={{ border: "1px solid oklch(0.30 0.018 268 / 0.7)" }}
@@ -215,7 +215,7 @@ function Landing() {
             >
               {/* Sidebar */}
               <div
-                className="w-56 shrink-0 border-r p-3 space-y-1"
+                className="hidden sm:block w-56 shrink-0 border-r p-3 space-y-1"
                 style={{ background: "oklch(0.10 0.013 268)", borderColor: "oklch(0.22 0.016 268)" }}
               >
                 {[
@@ -297,7 +297,7 @@ function Landing() {
         </section>
 
         {/* Features */}
-        <section className="mx-auto max-w-6xl px-6 pb-28">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-20 sm:pb-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               Everything you need,
@@ -347,9 +347,9 @@ function Landing() {
         </section>
 
         {/* CTA Banner */}
-        <section className="mx-auto max-w-4xl px-6 pb-28">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 pb-20 sm:pb-28">
           <div
-            className="relative rounded-3xl p-12 text-center overflow-hidden"
+            className="relative rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center overflow-hidden"
             style={{
               background: "linear-gradient(135deg, oklch(0.20 0.020 270) 0%, oklch(0.16 0.018 268) 100%)",
               border: "1px solid oklch(0.30 0.020 268 / 0.7)",

@@ -86,7 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Chatfaa — Username-based real-time messaging" },
       { name: "description", content: "Private, real-time chat with usernames instead of phone numbers. Fast, anonymous, beautifully dark." },
       { property: "og:title", content: "Chatfaa — Username-based real-time messaging" },

@@ -189,7 +189,7 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Top nav bar ── */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b"
+      <header className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b safe-top"
         style={{ background: "oklch(0.13 0.015 268 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
         <Link to="/feed">
           <button className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
@@ -223,7 +223,7 @@ function ProfilePage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pb-16">
+      <div className="max-w-2xl mx-auto px-4 pb-bottom-nav md:pb-16">
         {/* ── Profile header ── */}
         <div className="pt-8 pb-6">
           {profileQ.isLoading ? (

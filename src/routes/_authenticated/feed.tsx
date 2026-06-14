@@ -64,6 +64,11 @@ type Story = {
   duration_sec: number;
   created_at: string;
   expires_at: string;
+  music_title: string | null;
+  music_artist: string | null;
+  music_artwork_url: string | null;
+  music_preview_url: string | null;
+  music_start_sec: number | null;
 };
 
 type StoryGroup = {
@@ -164,7 +169,7 @@ function FeedPage() {
     <div className="min-h-[100dvh] w-full flex bg-background text-foreground">
 
       {/* ── Left nav rail (desktop) ── */}
-      <aside className="hidden md:flex w-[60px] xl:w-[200px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh]"
+      <aside className="hidden md:flex w-[60px] xl:w-[200px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top"
         style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.18 0.016 268)" }}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-3 mb-4">
@@ -203,9 +208,9 @@ function FeedPage() {
       </aside>
 
       {/* ── Feed column ── */}
-      <main className="flex-1 min-w-0 flex flex-col items-center pb-20 md:pb-8">
+      <main className="flex-1 min-w-0 flex flex-col items-center pb-bottom-nav md:pb-8">
         {/* Top bar (mobile) */}
-        <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-4 h-14 border-b"
+        <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-4 h-14 border-b safe-top"
           style={{ background: "oklch(0.11 0.015 270 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
           <span className="font-bold text-base tracking-tight">chatfaa</span>
           <div className="flex items-center gap-1">
@@ -257,7 +262,7 @@ function FeedPage() {
       </main>
 
       {/* ── Mobile bottom nav ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t z-40"
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t z-40 bottom-nav"
         style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
         {[
           { to: "/feed", icon: Home, label: "Feed", active: true },
@@ -284,10 +289,9 @@ function FeedPage() {
 // ─── Stories Row ──────────────────────────────────────────────
 function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | null }) {
   const qc = useQueryClient();
-  const [uploading, setUploading] = useState(false);
+  const [addStoryOpen, setAddStoryOpen] = useState(false);
   const [viewingGroup, setViewingGroup] = useState<StoryGroup | null>(null);
   const [viewingIndex, setViewingIndex] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // Fetch all active stories
   const storiesQ = useQuery({
@@ -357,32 +361,6 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
     return result;
   }, [stories, profiles, seenIds, meId, meProfile]);
 
-  async function addStory(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 50 * 1024 * 1024) { toast.error("File must be under 50 MB"); return; }
-    const isVideo = f.type.startsWith("video/");
-    setUploading(true);
-    try {
-      const ext = f.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg");
-      const path = `${meId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("stories").upload(path, f, { upsert: false });
-      if (upErr) { toast.error("Upload failed: " + upErr.message); return; }
-      const { data: urlData } = supabase.storage.from("stories").getPublicUrl(path);
-      const { error } = await (supabase as any).from("stories").insert({
-        user_id: meId,
-        media_url: urlData.publicUrl,
-        media_type: isVideo ? "video" : "image",
-        duration_sec: isVideo ? 15 : 5,
-      });
-      if (error) { toast.error(error.message); return; }
-      toast.success("Story posted!");
-      qc.invalidateQueries({ queryKey: ["stories"] });
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
 
   function openGroup(group: StoryGroup) {
     // Find first unseen index
@@ -405,7 +383,7 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
           <div className="flex flex-col items-center gap-1.5 shrink-0">
             <div className="relative">
               <button
-                onClick={() => hasMyStory && myGroup ? openGroup(myGroup) : fileRef.current?.click()}
+                onClick={() => hasMyStory && myGroup ? openGroup(myGroup) : setAddStoryOpen(true)}
                 className={cn(
                   "h-[62px] w-[62px] rounded-full transition-all",
                   hasMyStory
@@ -423,15 +401,11 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
               </button>
               {/* Add story "+" badge */}
               <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
+                onClick={() => setAddStoryOpen(true)}
                 className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full grid place-items-center text-white shadow-md transition-all"
                 style={{ background: "var(--gradient-primary)" }}
               >
-                {uploading
-                  ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                  : <Plus className="h-3 w-3" />
-                }
+                <Plus className="h-3 w-3" />
               </button>
             </div>
             <span className="text-[10px] text-muted-foreground truncate w-[62px] text-center">
@@ -477,7 +451,12 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
         </div>
       </div>
 
-      <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={addStory} />
+      <AddStoryDialog
+        open={addStoryOpen}
+        onOpenChange={setAddStoryOpen}
+        userId={meId}
+        onUploaded={() => qc.invalidateQueries({ queryKey: ["stories"] })}
+      />
 
       {/* Story viewer */}
       {viewingGroup && (
@@ -591,8 +570,18 @@ function StoryViewer({ group, initialIndex, meId, allGroups, onClose, onNavigate
       className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Story media */}
-      <div className="relative w-full h-full max-w-md mx-auto flex flex-col">
+      {/* 9:16 story container — fills full height on mobile, letterboxed on desktop */}
+      <div className="relative h-full w-full max-h-full flex items-center justify-center">
+        <div
+          className="relative overflow-hidden bg-black"
+          style={{
+            aspectRatio: "9/16",
+            height: "100%",
+            maxHeight: "100dvh",
+            width: "auto",
+            maxWidth: "100vw",
+          }}
+        >
         {/* Media */}
         {isVideo ? (
           <video
@@ -675,6 +664,18 @@ function StoryViewer({ group, initialIndex, meId, allGroups, onClose, onNavigate
           </div>
         )}
 
+        {/* Music overlay */}
+        {story.music_preview_url && (
+          <StoryMusicOverlay
+            title={story.music_title!}
+            artist={story.music_artist!}
+            artworkUrl={story.music_artwork_url ?? null}
+            previewUrl={story.music_preview_url}
+            startSec={story.music_start_sec ?? 0}
+            paused={paused}
+          />
+        )}
+
         {/* Tap zones — left/right nav */}
         <div className="absolute inset-0 flex z-10">
           <button
@@ -693,8 +694,261 @@ function StoryViewer({ group, initialIndex, meId, allGroups, onClose, onNavigate
             onClick={goNext}
           />
         </div>
-      </div>
+        </div>{/* end 9:16 story box */}
+      </div>{/* end centering wrapper */}
     </div>
+  );
+}
+
+// ─── Story music overlay (plays while story is visible) ───────
+function StoryMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0, paused }: {
+  title: string; artist: string;
+  artworkUrl: string | null; previewUrl: string;
+  startSec?: number; paused: boolean;
+}) {
+  const [muted, setMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio(previewUrl);
+    audio.loop = false;
+    audio.muted = false;
+    audio.volume = 0.7;
+    audio.currentTime = startSec;
+    audio.play().catch(() => {});
+    audio.ontimeupdate = () => {
+      if (audio.currentTime >= startSec + CLIP_DURATION) {
+        audio.currentTime = startSec;
+      }
+    };
+    audioRef.current = audio;
+    return () => { audio.pause(); audio.src = ""; };
+  }, [previewUrl, startSec]);
+
+  // Pause/resume with story
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (paused) audioRef.current.pause();
+    else audioRef.current.play().catch(() => {});
+  }, [paused]);
+
+  function toggleMute(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!audioRef.current) return;
+    const next = !muted;
+    audioRef.current.muted = next;
+    setMuted(next);
+  }
+
+  return (
+    <div
+      className="absolute bottom-10 left-3 right-3 z-20 flex items-center gap-2.5 px-3 py-2 rounded-2xl"
+      style={{ background: "rgba(0,0,0,0.48)", backdropFilter: "blur(8px)" }}
+    >
+      {/* Rotating disc */}
+      <div className="relative shrink-0">
+        {artworkUrl ? (
+          <img
+            src={artworkUrl}
+            alt=""
+            className={cn("h-8 w-8 rounded-full object-cover border-2 border-white/30", !paused && "animate-spin-slow")}
+          />
+        ) : (
+          <div className={cn("h-8 w-8 rounded-full border-2 border-white/30 grid place-items-center", !paused && "animate-spin-slow")}
+            style={{ background: "oklch(0.65 0.22 280 / 0.6)" }}>
+            <Music className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+        <div className="absolute inset-0 m-auto h-2 w-2 rounded-full bg-black/60 pointer-events-none" />
+      </div>
+      {/* Track info */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="whitespace-nowrap overflow-hidden">
+          <span className="text-white text-[11px] font-semibold inline-block animate-marquee">
+            {title} · {artist}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 mt-0.5">
+          <Music className="h-2.5 w-2.5 text-white/60" />
+          <span className="text-white/60 text-[10px]">Original audio</span>
+        </div>
+      </div>
+      {/* Mute toggle */}
+      <button
+        onClick={toggleMute}
+        className="h-8 w-8 rounded-full grid place-items-center shrink-0 transition-all active:scale-90"
+        style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.2)" }}
+      >
+        {muted ? <MuteIcon /> : <UnmuteIcon />}
+      </button>
+    </div>
+  );
+}
+
+// ─── Add Story dialog (image/video + caption + music) ─────────
+function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  userId: string; onUploaded: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<SelectedMusic | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function reset() {
+    setFile(null); setPreview(null); setCaption("");
+    setSelectedMusic(null); setMusicPickerOpen(false);
+  }
+
+  function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 50 * 1024 * 1024) { toast.error("File must be under 50 MB"); return; }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  }
+
+  async function upload() {
+    if (!file) { toast.error("Pick a photo or video first."); return; }
+    setUploading(true);
+    try {
+      const isVideo = file.type.startsWith("video/");
+      const ext = file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg");
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("stories").upload(path, file, { upsert: false });
+      if (upErr) { toast.error("Upload failed: " + upErr.message); return; }
+      const { data: urlData } = supabase.storage.from("stories").getPublicUrl(path);
+      const { error } = await (supabase as any).from("stories").insert({
+        user_id: userId,
+        media_url: urlData.publicUrl,
+        media_type: isVideo ? "video" : "image",
+        caption: caption.trim() || null,
+        duration_sec: isVideo ? 15 : 5,
+        music_title: selectedMusic?.track.trackName ?? null,
+        music_artist: selectedMusic?.track.artistName ?? null,
+        music_artwork_url: selectedMusic?.track.artworkUrl100 ?? null,
+        music_preview_url: selectedMusic?.track.previewUrl ?? null,
+        music_start_sec: selectedMusic?.startSec ?? 0,
+      });
+      if (error) { toast.error(error.message); return; }
+      toast.success("Story posted!");
+      onUploaded();
+      reset(); onOpenChange(false);
+    } finally { setUploading(false); }
+  }
+
+  const isVideo = file?.type.startsWith("video/") ?? false;
+
+  return (
+    <>
+      <Dialog open={open && !musicPickerOpen} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
+        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-2rem)]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+              New story
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Media picker */}
+            {!preview ? (
+              <div
+                onClick={() => inputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer py-10 transition-all hover:border-primary/50"
+                style={{ borderColor: "oklch(0.28 0.018 268)" }}
+              >
+                <div className="h-12 w-12 rounded-2xl grid place-items-center"
+                  style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
+                  <Camera className="h-5 w-5 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">Tap to pick photo or video</p>
+                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, MP4 · max 50 MB</p>
+                </div>
+                <input ref={inputRef} type="file" accept="image/*,video/*" className="hidden" onChange={pickFile} />
+              </div>
+            ) : (
+              <div className="relative rounded-2xl overflow-hidden bg-black" style={{ aspectRatio: "9/16" }}>
+                {isVideo ? (
+                  <video src={preview} className="absolute inset-0 w-full h-full object-cover" muted autoPlay loop playsInline />
+                ) : (
+                  <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                )}
+                <button onClick={reset}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-all z-10">
+                  <X className="h-4 w-4 text-white" />
+                </button>
+                <input ref={inputRef} type="file" accept="image/*,video/*" className="hidden" onChange={pickFile} />
+              </div>
+            )}
+
+            {/* Caption */}
+            <Textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Add a caption… (optional)"
+              maxLength={200}
+              rows={2}
+              className="rounded-xl resize-none"
+            />
+
+            {/* Music selector */}
+            <button type="button" onClick={() => setMusicPickerOpen(true)}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-sm",
+                selectedMusic ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30 bg-card"
+              )}>
+              {selectedMusic ? (
+                <>
+                  <img src={selectedMusic.track.artworkUrl100} alt=""
+                    className="h-9 w-9 rounded-lg object-cover shrink-0" />
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-medium truncate text-xs leading-tight">{selectedMusic.track.trackName}</p>
+                    <p className="text-muted-foreground truncate text-[11px]">
+                      {selectedMusic.track.artistName}
+                      <span className="ml-2 text-primary/70">· from {formatSec(selectedMusic.startSec)}</span>
+                    </p>
+                  </div>
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setSelectedMusic(null); }}
+                    className="shrink-0 h-6 w-6 rounded-full grid place-items-center hover:bg-white/10 transition-all">
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="h-9 w-9 rounded-xl grid place-items-center shrink-0"
+                    style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                    <Music className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="flex-1 text-left text-muted-foreground">Add music</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                </>
+              )}
+            </button>
+
+            <Button
+              onClick={upload}
+              disabled={uploading || !file}
+              className="w-full h-10 rounded-xl font-semibold"
+              style={{ background: "var(--gradient-primary)" }}>
+              {uploading
+                ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</span>
+                : "Share story"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <MusicPickerDialog
+        open={musicPickerOpen}
+        onOpenChange={setMusicPickerOpen}
+        onSelect={(music) => { setSelectedMusic(music); setMusicPickerOpen(false); }}
+      />
+    </>
   );
 }
 
@@ -726,6 +980,14 @@ function AvatarIconMobile({ className }: { className?: string }) {
   return <AvatarIcon className={cn("h-5 w-5", className)} />;
 }
 
+// ─── Snap ratio to nearest Instagram post format ─────────────
+function snapPostRatio(w: number, h: number): string {
+  const r = w / h;
+  if (r >= 1.7) return "1080/566";   // Landscape 1.91:1
+  if (r >= 0.9) return "1/1";        // Square 1:1
+  return "4/5";                       // Portrait 4:5 (default for tall images)
+}
+
 // ─── Single post card ─────────────────────────────────────────
 function PostCard({ post, profile, likes, meId }: {
   post: Post; profile: Profile | undefined;
@@ -734,6 +996,7 @@ function PostCard({ post, profile, likes, meId }: {
   const qc = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgRatio, setImgRatio] = useState<string>("4/5"); // default portrait until loaded
 
   // Double-tap like
   const lastTapRef = useRef<number>(0);
@@ -819,14 +1082,21 @@ function PostCard({ post, profile, likes, meId }: {
       {post.image_url && (
         <div
           className="relative w-full cursor-pointer select-none overflow-hidden"
-          style={{ background: "oklch(0.14 0.015 268)", aspectRatio: imgLoaded ? undefined : "1/1" }}
+          style={{
+            background: "oklch(0.14 0.015 268)",
+            aspectRatio: imgRatio,
+          }}
           onClick={handleImageTap}
         >
           <img
             src={post.image_url}
             alt={post.caption ?? "post"}
-            className="w-full h-auto block"
-            onLoad={() => setImgLoaded(true)}
+            className="absolute inset-0 w-full h-full object-cover"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              setImgRatio(snapPostRatio(img.naturalWidth, img.naturalHeight));
+              setImgLoaded(true);
+            }}
             draggable={false}
           />
           {/* Heart burst on double tap */}
@@ -1308,18 +1578,24 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
   const [uploading, setUploading] = useState(false);
   const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<SelectedMusic | null>(null);
+  const [cropRatio, setCropRatio] = useState<"1/1" | "4/5" | "1080/566">("4/5");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function reset() {
     setFile(null); setPreview(null); setCaption("");
-    setSelectedMusic(null); setMusicPickerOpen(false);
+    setSelectedMusic(null); setMusicPickerOpen(false); setCropRatio("4/5");
   }
 
   function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 20 * 1024 * 1024) { toast.error("Image must be under 20 MB"); return; }
-    setFile(f); setPreview(URL.createObjectURL(f));
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+    // Auto-detect ratio from natural dimensions
+    const img = new Image();
+    img.onload = () => setCropRatio(snapPostRatio(img.naturalWidth, img.naturalHeight) as "1/1" | "4/5" | "1080/566");
+    img.src = URL.createObjectURL(f);
   }
 
   function onDrop(e: React.DragEvent) {
@@ -1387,12 +1663,40 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
                 <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={pickFile} />
               </div>
             ) : (
-              <div className="relative rounded-2xl overflow-hidden aspect-square">
-                <img src={preview} alt="" className="w-full h-full object-cover" />
-                <button onClick={reset}
-                  className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-all">
-                  <X className="h-4 w-4 text-white" />
-                </button>
+              <div className="space-y-2">
+                {/* Ratio selector */}
+                <div className="flex gap-2 justify-center">
+                  {([
+                    { ratio: "1/1", label: "1:1", icon: "⬛" },
+                    { ratio: "4/5", label: "4:5", icon: "▬" },
+                    { ratio: "1080/566", label: "1.91:1", icon: "▭" },
+                  ] as const).map(({ ratio, label, icon }) => (
+                    <button
+                      key={ratio}
+                      type="button"
+                      onClick={() => setCropRatio(ratio)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                        cropRatio === ratio
+                          ? "border-primary/60 text-foreground bg-primary/10"
+                          : "border-border text-muted-foreground hover:border-primary/30"
+                      )}
+                    >
+                      <span className="text-[10px]">{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+                {/* Preview at selected ratio */}
+                <div
+                  className="relative w-full rounded-2xl overflow-hidden bg-black"
+                  style={{ aspectRatio: cropRatio }}
+                >
+                  <img src={preview!} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <button onClick={reset}
+                    className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-all z-10">
+                    <X className="h-4 w-4 text-white" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1832,7 +2136,7 @@ function PostSkeleton() {
           <div className="h-2.5 w-16 rounded shimmer" />
         </div>
       </div>
-      <div className="aspect-square shimmer" />
+      <div className="aspect-[4/5] shimmer" />
       <div className="px-4 pt-3 space-y-2">
         <div className="h-3 w-16 rounded shimmer" />
         <div className="h-3 w-48 rounded shimmer" />

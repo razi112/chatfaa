@@ -144,10 +144,10 @@ function SettingsPage() {
   const showContent = !mobileView || activeSection !== null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col overflow-x-hidden">
       {/* Top bar */}
       <header
-        className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b shrink-0"
+        className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b shrink-0 safe-top"
         style={{ background: "oklch(0.13 0.015 268 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}
       >
         {mobileView && activeSection ? (
