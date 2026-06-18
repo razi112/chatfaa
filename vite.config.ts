@@ -15,5 +15,10 @@ export default defineConfig({
   nitro: {
     // Build for Vercel serverless deployment
     preset: "vercel",
+    // Ensure tslib is bundled into the serverless function (needed by @supabase/functions-js)
+    bundledStorage: [],
+    externals: {
+      inline: ["tslib"],
+    },
   },
 });
