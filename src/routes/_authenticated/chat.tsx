@@ -28,6 +28,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { NotesTray } from "@/components/Notes";
 import { BottomNav } from "@/components/BottomNav";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_authenticated/chat")({
 type Profile = {
   id: string; username: string; display_name: string | null;
   avatar_url: string | null; status: string; bio: string | null;
+  is_verified?: boolean;
 };
 type Friendship = {
   id: string; sender_id: string; receiver_id: string;
@@ -461,26 +463,17 @@ function ChatApp() {
             <Home className="h-5 w-5" />
             Feed
           </Link>
-          {(["chats", "friends", "search"] as Tab[]).map((t) => {
-            const icons = { chats: MessageCircle, friends: Users, search: Search };
-            const labels = { chats: "Chats", friends: "Friends", search: "Find" };
-            const Icon = icons[t];
-            return (
-              <button key={t} onClick={() => { setTab(t); setSidebarOpen(true); }}
-                className={cn("flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium transition-colors relative",
-                  tab === t ? "text-white" : "text-muted-foreground"
-                )}>
-                <Icon className="h-5 w-5" />
-                {labels[t]}
-                {t === "friends" && pendingIncoming.length > 0 && (
-                  <span className="absolute top-2 left-1/2 ml-2 h-4 w-4 text-[9px] font-bold grid place-items-center rounded-full text-white"
-                    style={{ background: "oklch(0.62 0.22 25)" }}>
-                    {pendingIncoming.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          <button onClick={() => setSidebarOpen(true)}
+            className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-white transition-colors relative">
+            <MessageCircle className="h-5 w-5" />
+            Chats
+            {pendingIncoming.length > 0 && (
+              <span className="absolute top-2 left-1/2 ml-2 h-4 w-4 text-[9px] font-bold grid place-items-center rounded-full text-white"
+                style={{ background: "oklch(0.62 0.22 25)" }}>
+                {pendingIncoming.length}
+              </span>
+            )}
+          </button>
           <Link to="/reels" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
             <Play className="h-5 w-5" />
             Reels
@@ -1092,6 +1085,7 @@ function ChatsList({ friends, groups, active, onSelect, presence, blockedIds, me
                         <span className={cn("truncate text-sm", hasUnread ? "font-semibold text-foreground" : "font-medium")}>
                           {f.display_name || f.username}
                         </span>
+                        {f.is_verified && <VerifiedBadge size={12} tooltip={false} />}
                         {preview && (
                           <span className={cn("text-[10px] shrink-0", hasUnread ? "text-primary font-semibold" : "text-muted-foreground")}>
                             {timeLabel(preview.lastMsg.created_at)}
@@ -1250,7 +1244,7 @@ function FriendRow({ profile, online, children }: { profile: Profile; online: bo
     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/5 transition-colors">
       <div className="relative shrink-0"><UserAvatar src={profile.avatar_url} name={profile.username} />{online && <OnlineDot />}</div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{profile.display_name || profile.username}</div>
+        <div className="truncate text-sm font-medium flex items-center gap-1">{profile.display_name || profile.username}{profile.is_verified && <VerifiedBadge size={12} tooltip={false} />}</div>
         <div className="truncate text-xs text-muted-foreground">@{profile.username}</div>
       </div>
       <div className="flex items-center gap-1 shrink-0">{children}</div>
@@ -1659,7 +1653,7 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
           {online && <OnlineDot />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold leading-tight truncate">{friend.display_name || friend.username}</div>
+          <div className="font-semibold leading-tight truncate flex items-center gap-1.5">{friend.display_name || friend.username}{friend.is_verified && <VerifiedBadge size={13} tooltip={false} />}</div>
           <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
             <span className="truncate">@{friend.username}</span>
             <span className="hidden sm:inline text-muted-foreground/40">·</span>

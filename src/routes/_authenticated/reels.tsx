@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/reels")({
   head: () => ({ meta: [{ title: "Reels — chatfaa" }] }),
@@ -31,6 +32,7 @@ type Reel = {
 };
 type Profile = {
   id: string; username: string; display_name: string | null; avatar_url: string | null;
+  is_verified?: boolean;
 };
 type ReelLike = { reel_id: string; user_id: string; created_at: string };
 type ReelComment = {

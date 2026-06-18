@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 // ─── Types ────────────────────────────────────────────────────
 export type Note = {
@@ -29,6 +30,7 @@ export type Note = {
 
 type Profile = {
   id: string; username: string; display_name: string | null; avatar_url: string | null;
+  is_verified?: boolean;
 };
 
 type MusicTrack = {
@@ -243,8 +245,9 @@ function FriendNoteBubble({ note, profile, onTap }: {
           </div>
         )}
       </div>
-      <span className="text-[10px] text-muted-foreground truncate w-full text-center">
-        {profile.display_name || profile.username}
+      <span className="text-[10px] text-muted-foreground truncate w-full text-center flex items-center justify-center gap-0.5">
+        <span className="truncate">{profile.display_name || profile.username}</span>
+        {profile.is_verified && <VerifiedBadge size={10} tooltip={false} />}
       </span>
     </button>
   );
@@ -307,7 +310,7 @@ function NoteViewer({ note, profile, meId, onClose, onReply }: {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">{profile.display_name || profile.username}</p>
+            <p className="text-sm font-semibold flex items-center gap-1">{profile.display_name || profile.username}{profile.is_verified && <VerifiedBadge size={13} tooltip={false} />}</p>
             <p className="text-xs text-muted-foreground">{timeLeft(note.expires_at)} left</p>
           </div>
           <button onClick={onClose} className="h-8 w-8 grid place-items-center rounded-full hover:bg-accent transition-all">
