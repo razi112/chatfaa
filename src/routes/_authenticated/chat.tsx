@@ -26,6 +26,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { NotesTray } from "@/components/Notes";
+import { BottomNav } from "@/components/BottomNav";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -275,7 +277,13 @@ function ChatApp() {
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={handleSelect} presence={presence} blockedIds={blockedIds} meId={user.id} />}
+        {tab === "chats" && (
+          <>
+            <NotesTray meId={user.id} meProfile={me ?? null} friendIds={acceptedFriends.map(f => f.id)} />
+            <div className="h-px mx-4 mb-1" style={{ background: "var(--border)" }} />
+            <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={handleSelect} presence={presence} blockedIds={blockedIds} meId={user.id} />
+          </>
+        )}
         {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { handleSelect({ type: "dm", id }); setTab("chats"); }} />}
         {tab === "search" && <SearchUsers meId={user.id} />}
       </ScrollArea>
@@ -387,7 +395,13 @@ function ChatApp() {
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
-              {tab === "chats" && <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} meId={user.id} />}
+              {tab === "chats" && (
+                <>
+                  <NotesTray meId={user.id} meProfile={me ?? null} friendIds={acceptedFriends.map(f => f.id)} />
+                  <div className="h-px mx-4 mb-1" style={{ background: "var(--border)" }} />
+                  <ChatsList friends={acceptedFriends} groups={groups} active={active} onSelect={setActive} presence={presence} blockedIds={blockedIds} meId={user.id} />
+                </>
+              )}
               {tab === "friends" && <FriendsList accepted={acceptedFriends} incoming={pendingIncoming} outgoing={pendingOutgoing} presence={presence} onMessage={(id) => { setActive({ type: "dm", id }); setTab("chats"); }} />}
               {tab === "search" && <SearchUsers meId={user.id} />}
             </ScrollArea>

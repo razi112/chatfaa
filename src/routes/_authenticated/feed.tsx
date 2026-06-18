@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { BottomNav } from "@/components/BottomNav";
 import { NotificationBell } from "@/components/NotificationBell";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +39,7 @@ type Post = {
 };
 type Profile = {
   id: string; username: string; display_name: string | null; avatar_url: string | null;
+  is_verified?: boolean;
 };
 type PostLike = { post_id: string; user_id: string };
 type PostComment = {
@@ -169,7 +172,7 @@ function FeedPage() {
     <div className="min-h-[100dvh] w-full flex bg-background text-foreground">
 
       {/* ── Left nav rail (desktop) ── */}
-      <aside className="hidden md:flex w-[60px] xl:w-[200px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top"
+      <aside className="hidden md:flex w-[60px] xl:w-[220px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top"
         style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.18 0.016 268)" }}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-3 mb-4">
@@ -208,21 +211,22 @@ function FeedPage() {
       </aside>
 
       {/* ── Feed column ── */}
-      <main className="flex-1 min-w-0 flex flex-col items-center pb-bottom-nav md:pb-8">
+      <main className="flex-1 min-w-0 flex flex-col items-center overflow-x-hidden"
+        style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}>
         {/* Top bar (mobile) */}
-        <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-4 h-14 border-b safe-top"
+        <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-3 h-14 border-b safe-top"
           style={{ background: "oklch(0.11 0.015 270 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
           <span className="font-bold text-base tracking-tight">chatfaa</span>
-          <div className="flex items-center gap-1">
-            <Link to="/people" className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+          <div className="flex items-center gap-0.5">
+            <Link to="/people" className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
               <Users className="h-5 w-5" />
             </Link>
             <NotificationBell meId={user.id} />
-            <Link to="/settings" className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all" title="Settings">
+            <Link to="/settings" className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all" title="Settings">
               <Settings className="h-5 w-5" />
             </Link>
             <button onClick={() => setUploadOpen(true)}
-              className="h-9 w-9 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+              className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
               <Plus className="h-5 w-5" />
             </button>
           </div>
@@ -261,25 +265,13 @@ function FeedPage() {
         )}
       </main>
 
-      {/* ── Mobile bottom nav ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t z-40 bottom-nav"
-        style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
-        {[
-          { to: "/feed", icon: Home, label: "Feed", active: true },
-          { to: "/people", icon: Users, label: "People", active: false },
-          { to: "/chat", icon: MessageCircle, label: "Chat", active: false },
-          { to: "/reels", icon: Play, label: "Reels", active: false },
-          { to: "/profile", icon: AvatarIconMobile, label: "Profile", active: false },
-        ].map(({ to, icon: Icon, label, active }) => (
-          <Link key={to} to={to as any}
-            className={cn("flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium transition-colors",
-              active ? "text-white" : "text-muted-foreground hover:text-white"
-            )}>
-            <Icon className="h-5 w-5" />
-            {label}
-          </Link>
-        ))}
-      </nav>
+      {/* ── Mobile bottom nav — liquid glass pill ── */}
+      <BottomNav
+        active="/feed"
+        avatarUrl={profiles[user.id]?.avatar_url ?? null}
+        username={profiles[user.id]?.username}
+        onCreate={() => setUploadOpen(true)}
+      />
 
       <UploadPostDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
     </div>
@@ -376,7 +368,7 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
   return (
     <>
       <div className="w-full max-w-[470px]">
-        <div className="flex gap-3 overflow-x-auto px-4 pt-4 pb-3 scrollbar-none"
+        <div className="flex gap-3 overflow-x-auto px-3 pt-4 pb-3 scrollbar-none stories-scroll"
           style={{ scrollbarWidth: "none" }}>
 
           {/* My story bubble */}
@@ -570,10 +562,10 @@ function StoryViewer({ group, initialIndex, meId, allGroups, onClose, onNavigate
       className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 9:16 story container — fills full height on mobile, letterboxed on desktop */}
-      <div className="relative h-full w-full max-h-full flex items-center justify-center">
+      {/* 9:16 story container — full bleed on mobile, letterboxed on desktop */}
+      <div className="relative h-full w-full flex items-center justify-center">
         <div
-          className="relative overflow-hidden bg-black"
+          className="story-viewer-box relative overflow-hidden bg-black"
           style={{
             aspectRatio: "9/16",
             height: "100%",
@@ -845,7 +837,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
   return (
     <>
       <Dialog open={open && !musicPickerOpen} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-2rem)]">
+        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Camera className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
@@ -1057,7 +1049,10 @@ function PostCard({ post, profile, likes, meId }: {
         </Link>
         <div className="flex-1 min-w-0">
           <Link to="/profile" search={{ userId: post.user_id } as any}>
-            <div className="text-sm font-semibold leading-tight hover:underline cursor-pointer">{name}</div>
+            <div className="flex items-center gap-1 text-sm font-semibold leading-tight hover:underline cursor-pointer">
+              {name}
+              {profile?.is_verified && <VerifiedBadge size={13} tooltip={false} />}
+            </div>
           </Link>
           <div className="text-[11px] text-muted-foreground">@{profile?.username} · {timeAgo(post.created_at)}</div>
         </div>
@@ -1486,7 +1481,7 @@ function CommentsDrawer({ post, meId, onClose }: {
       <div
         className="flex flex-col rounded-t-3xl overflow-hidden w-full max-w-lg mx-auto"
         style={{
-          maxHeight: "80dvh",
+          maxHeight: "85dvh",
           background: "oklch(0.14 0.015 268 / 0.98)",
           backdropFilter: "blur(20px)",
           border: "1px solid oklch(0.26 0.018 268)",
@@ -1638,7 +1633,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
   return (
     <>
       <Dialog open={open && !musicPickerOpen} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-2rem)]">
+        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ImagePlus className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
@@ -1665,7 +1660,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
             ) : (
               <div className="space-y-2">
                 {/* Ratio selector */}
-                <div className="flex gap-2 justify-center">
+                <div className="flex gap-1.5 justify-center flex-wrap">
                   {([
                     { ratio: "1/1", label: "1:1", icon: "⬛" },
                     { ratio: "4/5", label: "4:5", icon: "▬" },
@@ -1676,7 +1671,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
                       type="button"
                       onClick={() => setCropRatio(ratio)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                        "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border",
                         cropRatio === ratio
                           ? "border-primary/60 text-foreground bg-primary/10"
                           : "border-border text-muted-foreground hover:border-primary/30"
@@ -1836,7 +1831,7 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-2rem)] flex flex-col max-h-[88dvh] p-0 overflow-hidden">
+      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] flex flex-col max-h-[92dvh] p-0 overflow-hidden">
 
         {/* ── Step 1: search ── */}
         {step === "search" && (
@@ -2032,7 +2027,7 @@ function MusicTrimStep({ track, onBack, onConfirm }: {
       </div>
 
       {/* Trim UI */}
-      <div className="flex-1 flex flex-col justify-center px-5 py-6 gap-5">
+      <div className="flex-1 flex flex-col justify-center px-4 py-4 gap-4 music-trim-body overflow-y-auto">
         <div className="text-center">
           <p className="text-sm font-semibold">Select a {CLIP}s clip</p>
           <p className="text-xs text-muted-foreground mt-0.5">

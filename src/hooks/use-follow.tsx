@@ -31,6 +31,7 @@ export interface SuggestedUser {
   display_name: string | null;
   avatar_url: string | null;
   is_private: boolean;
+  is_verified: boolean;
   mutual_count: number;
 }
 
@@ -40,6 +41,7 @@ export interface SearchUser {
   display_name: string | null;
   avatar_url: string | null;
   is_private: boolean;
+  is_verified: boolean;
   follow_status: FollowStatus;
 }
 

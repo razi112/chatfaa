@@ -242,6 +242,7 @@ export type Database = {
           email: string | null
           id: string
           is_private: boolean
+          is_verified: boolean
           last_seen: string
           status: string
           updated_at: string
@@ -268,6 +269,7 @@ export type Database = {
           email?: string | null
           id: string
           is_private?: boolean
+          is_verified?: boolean
           last_seen?: string
           status?: string
           updated_at?: string
@@ -294,6 +296,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_private?: boolean
+          is_verified?: boolean
           last_seen?: string
           status?: string
           updated_at?: string
@@ -319,6 +322,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      refresh_verified_badge: { Args: { _user_id: string }; Returns: void }
       check_username_exists: { Args: { _username: string }; Returns: boolean }
       follow_user: { Args: { _target: string }; Returns: string }
       unfollow_user: { Args: { _target: string }; Returns: void }
@@ -363,14 +367,14 @@ export type Database = {
         Args: { _query: string; _limit?: number }
         Returns: Array<{
           id: string; username: string; display_name: string | null
-          avatar_url: string | null; is_private: boolean; follow_status: string
+          avatar_url: string | null; is_private: boolean; is_verified: boolean; follow_status: string
         }>
       }
       get_suggested_users: {
         Args: { _limit?: number }
         Returns: Array<{
           id: string; username: string; display_name: string | null
-          avatar_url: string | null; is_private: boolean; mutual_count: number
+          avatar_url: string | null; is_private: boolean; is_verified: boolean; mutual_count: number
         }>
       }
       mark_notifications_read: { Args: Record<string, never>; Returns: void }

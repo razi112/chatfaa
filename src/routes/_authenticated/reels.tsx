@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -54,6 +54,7 @@ function timeAgo(iso: string) {
 // ─── Main page ────────────────────────────────────────────────
 function ReelsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -128,15 +129,23 @@ function ReelsPage() {
      */
     <div className="h-[100dvh] w-full bg-black flex items-center justify-center overflow-hidden relative">
 
-      {/* ── Back button (top-left, above everything) ── */}
-      <Link
-        to="/feed"
-        className="absolute top-4 left-4 z-50 flex items-center justify-center h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 transition-all"
-        style={{ marginTop: "env(safe-area-inset-top)" }}
+      {/* ── Back button — Instagram style, top-left, above tap zones ── */}
+      <button
+        onClick={(e) => { e.stopPropagation(); navigate({ to: "/feed" }); }}
+        className="absolute z-50 flex items-center justify-center h-10 w-10 rounded-full transition-all active:scale-90"
+        style={{
+          top: "calc(0.75rem + env(safe-area-inset-top))",
+          left: "1rem",
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          border: "none",
+          outline: "none",
+        }}
         aria-label="Back to feed"
       >
-        <ArrowLeft className="h-5 w-5 text-white" />
-      </Link>
+        <ArrowLeft className="h-5 w-5 text-white drop-shadow" />
+      </button>
 
       {/* ── Empty state ── */}
       {reels.length === 0 && !reelsQ.isLoading && (
@@ -430,7 +439,7 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
       <div className="absolute left-0 right-0 z-10 px-4 pt-16"
         style={{
           bottom: 0,
-          paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))",
+          paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))",
           background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)"
         }}>
         {/* User info */}
@@ -457,8 +466,8 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
       </div>
 
       {/* ── Right action rail ── */}
-      <div className="absolute right-3 z-10 flex flex-col items-center gap-5"
-        style={{ bottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
+      <div className="absolute right-3 z-10 flex flex-col items-center gap-5 reel-action-rail"
+        style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}>
         {/* Like */}
         <button onClick={toggleLike} className="flex flex-col items-center gap-1 group">
           <div className="h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90">

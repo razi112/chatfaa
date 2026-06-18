@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useSuggestedUsers, useFollowActions, type SearchUser } from "@/hooks/use-follow";
 import { FollowButton } from "@/components/FollowButton";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +70,7 @@ function PeoplePage() {
         <span className="font-semibold text-sm">Discover People</span>
       </header>
 
-      <div className="max-w-xl mx-auto px-4 py-5 space-y-6">
+      <div className="max-w-xl mx-auto px-3 sm:px-4 py-5 space-y-6">
         {/* Search bar */}
         <div
           className="flex items-center gap-2 rounded-2xl px-3"
@@ -118,6 +119,7 @@ function PeoplePage() {
                     displayName={u.display_name}
                     avatarUrl={u.avatar_url}
                     isPrivate={u.is_private}
+                    isVerified={u.is_verified}
                     followStatus={u.follow_status}
                     meId={user.id}
                   />
@@ -154,6 +156,7 @@ function PeoplePage() {
                     displayName={u.display_name}
                     avatarUrl={u.avatar_url}
                     isPrivate={u.is_private}
+                    isVerified={u.is_verified}
                     followStatus="none"
                     meId={user.id}
                     mutualCount={u.mutual_count}
@@ -169,20 +172,21 @@ function PeoplePage() {
 }
 
 function UserRow({
-  id, username, displayName, avatarUrl, isPrivate, followStatus, meId, mutualCount,
+  id, username, displayName, avatarUrl, isPrivate, isVerified, followStatus, meId, mutualCount,
 }: {
   id: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
   isPrivate: boolean;
+  isVerified?: boolean;
   followStatus: string;
   meId: string;
   mutualCount?: number;
 }) {
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all hover:bg-white/4 group"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all hover:bg-white/4 group people-row"
       style={{ background: "oklch(0.16 0.016 268 / 0.5)" }}
     >
       <Link to="/profile" search={{ userId: id } as any} className="shrink-0">
@@ -202,6 +206,7 @@ function UserRow({
           <span className="text-sm font-semibold leading-tight">
             {displayName || username}
           </span>
+          {isVerified && <VerifiedBadge size={13} tooltip={false} />}
           {isPrivate && <Lock className="h-3 w-3 text-muted-foreground" />}
         </div>
         <div className="text-xs text-muted-foreground">@{username}</div>

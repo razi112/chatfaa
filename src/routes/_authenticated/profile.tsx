@@ -26,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({ userId: z.string().optional() });
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
 type Profile = {
   id: string; username: string; display_name: string | null;
   avatar_url: string | null; bio: string | null; status: string;
-  is_private?: boolean;
+  is_private?: boolean; is_verified?: boolean;
 };
 type Post = {
   id: string; user_id: string; image_url: string | null;
@@ -198,6 +199,7 @@ function ProfilePage() {
         </Link>
         <span className="font-semibold text-sm flex items-center gap-1.5">
           {profile ? `@${profile.username}` : "Profile"}
+          {profile?.is_verified && <VerifiedBadge size={13} />}
           {profile?.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
         </span>
         <div className="ml-auto flex items-center gap-1">
@@ -223,7 +225,7 @@ function ProfilePage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pb-bottom-nav md:pb-16">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pb-bottom-nav md:pb-16">
         {/* ── Profile header ── */}
         <div className="pt-8 pb-6">
           {profileQ.isLoading ? (
@@ -279,7 +281,7 @@ function ProfilePage() {
                 <EmptyState icon={<ImagePlus className="h-8 w-8" />} title="No posts yet"
                   sub={isOwnProfile ? "Upload your first post above." : "This user hasn't posted yet."} />
               ) : (
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-1">
                   {posts.map((post) => {
                     const likeCount = likes.filter((l) => l.post_id === post.id).length;
                     const liked = likes.some((l) => l.post_id === post.id && l.user_id === user.id);
@@ -313,7 +315,7 @@ function ProfilePage() {
                 <EmptyState icon={<Play className="h-8 w-8" />} title="No reels yet"
                   sub={isOwnProfile ? "Upload a reel from the Reels page." : "This user hasn't uploaded reels yet."} />
               ) : (
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-1">
                   {reels.map((reel) => (
                     <div key={reel.id}
                       className="relative aspect-[9/16] rounded-xl overflow-hidden cursor-pointer group"
@@ -443,9 +445,9 @@ function ProfileHeader({
   return (
     <div>
       {/* Avatar row */}
-      <div className="flex items-start gap-5 mb-5">
+      <div className="flex items-start gap-4 sm:gap-5 mb-5">
         <div className="relative shrink-0">
-          <Avatar className="h-20 w-20 ring-2 ring-white/10">
+          <Avatar className="h-16 w-16 sm:h-20 sm:w-20 ring-2 ring-white/10">
             <AvatarImage src={profile.avatar_url ?? undefined} />
             <AvatarFallback className="text-xl font-bold"
               style={{ background: "var(--gradient-primary)", color: "white" }}>
@@ -464,7 +466,7 @@ function ProfileHeader({
         </div>
 
         {/* Stats */}
-        <div className="flex gap-4 pt-2 flex-wrap">
+        <div className="flex gap-3 sm:gap-4 pt-2 flex-wrap min-w-0">
           <StatBtn label="Posts" value={postCount} onClick={() => {}} />
           <StatBtn label="Followers" value={counts.followers} onClick={onOpenFollowers} badge={pendingCount > 0 ? pendingCount : undefined} />
           <StatBtn label="Following" value={counts.following} onClick={onOpenFollowing} />
@@ -487,6 +489,7 @@ function ProfileHeader({
           <div className="font-bold text-base leading-tight">
             {profile.display_name || profile.username}
           </div>
+          {profile.is_verified && <VerifiedBadge size={16} />}
           {profile.is_private && (
             <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full text-muted-foreground"
               style={{ background: "oklch(0.20 0.016 268)", border: "1px solid oklch(0.28 0.018 268)" }}>
