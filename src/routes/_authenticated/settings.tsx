@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BottomNav } from "@/components/BottomNav";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — chatfaa" }] }),
@@ -241,6 +242,8 @@ function SettingsPage() {
           </main>
         )}
       </div>
+
+      <BottomNav active="/profile" avatarUrl={profile?.avatar_url ?? null} username={profile?.username} />
     </div>
   );
 }

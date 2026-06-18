@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSuggestedUsers, useFollowActions, type SearchUser } from "@/hooks/use-follow";
 import { FollowButton } from "@/components/FollowButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { BottomNav } from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +168,8 @@ function PeoplePage() {
           </section>
         )}
       </div>
+
+      <BottomNav active="/people" />
     </div>
   );
 }

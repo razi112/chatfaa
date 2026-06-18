@@ -457,28 +457,12 @@ function ChatApp() {
 
       {/* ── Mobile bottom nav (when no chat open) ── */}
       {isMobile && !active && (
-        <nav className="fixed bottom-0 left-0 right-0 flex border-t z-40 bottom-nav"
-          style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.22 0.016 268)" }}>
-          <Link to="/feed" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
-            <Home className="h-5 w-5" />
-            Feed
-          </Link>
-          <button onClick={() => setSidebarOpen(true)}
-            className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-white transition-colors relative">
-            <MessageCircle className="h-5 w-5" />
-            Chats
-            {pendingIncoming.length > 0 && (
-              <span className="absolute top-2 left-1/2 ml-2 h-4 w-4 text-[9px] font-bold grid place-items-center rounded-full text-white"
-                style={{ background: "oklch(0.62 0.22 25)" }}>
-                {pendingIncoming.length}
-              </span>
-            )}
-          </button>
-          <Link to="/reels" className="flex-1 flex flex-col items-center gap-0.5 py-3 text-[10px] font-medium text-muted-foreground hover:text-white transition-colors">
-            <Play className="h-5 w-5" />
-            Reels
-          </Link>
-        </nav>
+        <BottomNav
+          active="/chat"
+          avatarUrl={me?.avatar_url ?? null}
+          username={me?.username}
+          onChatOpen={() => setSidebarOpen(true)}
+        />
       )}
 
       {/* ── Profile settings dialog ── */}

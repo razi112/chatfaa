@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { BottomNav } from "@/components/BottomNav";
 
 export const Route = createFileRoute("/_authenticated/reels")({
   head: () => ({ meta: [{ title: "Reels — chatfaa" }] }),
@@ -276,6 +277,8 @@ function ReelsPage() {
 
       <ScrollToActive containerRef={containerRef} index={activeIndex} />
       <UploadReelDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
+
+      <BottomNav active="/reels" avatarUrl={profiles[user.id]?.avatar_url ?? null} username={profiles[user.id]?.username} />
     </div>
   );
 }
@@ -455,8 +458,9 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
             </Avatar>
           </Link>
           <div>
-            <div className="text-white font-semibold text-sm leading-tight drop-shadow">
+            <div className="text-white font-semibold text-sm leading-tight drop-shadow flex items-center gap-1">
               {profile?.display_name || profile?.username || "Unknown"}
+              {profile?.is_verified && <VerifiedBadge size={13} tooltip={false} />}
             </div>
             <div className="text-white/60 text-xs">@{profile?.username} · {timeAgo(reel.created_at)}</div>
           </div>

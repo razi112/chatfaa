@@ -14,6 +14,7 @@ import {
 } from "@/hooks/use-follow";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal } from "@/components/FollowListModal";
+import { BottomNav } from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -375,6 +376,12 @@ function ProfilePage() {
           requestCount={isOwnProfile ? undefined : 0}
         />
       )}
+
+      <BottomNav
+        active="/profile"
+        avatarUrl={isOwnProfile ? profile?.avatar_url ?? null : null}
+        username={isOwnProfile ? profile?.username : undefined}
+      />
     </div>
   );
 }

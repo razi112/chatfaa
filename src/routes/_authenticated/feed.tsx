@@ -270,7 +270,6 @@ function FeedPage() {
         active="/feed"
         avatarUrl={profiles[user.id]?.avatar_url ?? null}
         username={profiles[user.id]?.username}
-        onCreate={() => setUploadOpen(true)}
       />
 
       <UploadPostDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />

@@ -1,14 +1,14 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Home, Search, Plus, Play, User } from "lucide-react";
+import { Home, MessageCircle, Play, User, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Liquid-glass floating pill navbar ────────────────────────
-// Matches Instagram's iOS 26 / Android liquid-glass navbar:
+// Matches Instagram's iOS / Android liquid-glass navbar:
 //   • Dark frosted-glass pill floating above the home indicator
 //   • Active item gets a distinct filled dark-capsule pill
-//   • Icons are bold-white when active, dim-white when inactive
+//   • Icons bold-white when active, dim-white when inactive
 //   • Profile item shows avatar or fallback initial
-//   • No labels — icon-only, compact like Instagram
+//   • No labels — icon-only, compact
 
 type NavItem = {
   to: string;
@@ -18,10 +18,11 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/feed",    icon: Home,   label: "Feed" },
-  { to: "/people",  icon: Search, label: "Discover" },
-  { to: "/reels",   icon: Play,   label: "Reels" },
-  { to: "/profile", icon: User,   label: "Profile", isProfile: true },
+  { to: "/feed",    icon: Home,          label: "Feed" },
+  { to: "/people",  icon: Search,        label: "Discover" },
+  { to: "/chat",    icon: MessageCircle, label: "Chat" },
+  { to: "/reels",   icon: Play,          label: "Reels" },
+  { to: "/profile", icon: User,          label: "Profile", isProfile: true },
 ];
 
 interface BottomNavProps {
@@ -29,7 +30,7 @@ interface BottomNavProps {
   avatarUrl?: string | null;
   username?: string;
   badge?: Partial<Record<string, number>>;
-  onCreate?: () => void;
+  onChatOpen?: () => void;
 }
 
 export function BottomNav({
@@ -37,12 +38,9 @@ export function BottomNav({
   avatarUrl,
   username,
   badge = {},
-  onCreate,
+  onChatOpen,
 }: BottomNavProps) {
   const initials = (username ?? "?").slice(0, 1).toUpperCase();
-
-  const leftItems  = NAV_ITEMS.slice(0, 2); // Feed, Discover
-  const rightItems = NAV_ITEMS.slice(2);    // Reels, Profile
 
   return (
     /* Outer wrapper: fixed above home indicator, centred */
@@ -66,93 +64,66 @@ export function BottomNav({
           marginRight: "max(0.5rem, env(safe-area-inset-right))",
         }}
       >
-        {/* Left items */}
-        {leftItems.map((item) => (
-          <NavPill
-            key={item.to}
-            item={item}
-            active={active}
-            badge={badge[item.to]}
-          />
-        ))}
-
-        {/* Centre "+" create button */}
-        {onCreate && (
-          <button
-            onClick={onCreate}
-            className="relative mx-1 h-12 w-12 rounded-full grid place-items-center transition-all duration-150 active:scale-90"
-            style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.10)",
-            }}
-            aria-label="Create"
-          >
-            <Plus className="h-[22px] w-[22px] text-white/80" strokeWidth={2.2} />
-          </button>
-        )}
-
-        {/* Right items */}
-        {rightItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           if (item.isProfile) {
             const isActive = active === item.to;
             return (
-              <Link
-                key={item.to}
-                to={item.to as any}
-                aria-label={item.label}
-                className="mx-0.5"
-              >
+              <Link key={item.to} to={item.to as any} aria-label={item.label} className="mx-0.5">
                 <div
                   className={cn(
                     "h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
                     isActive ? "px-3.5" : "w-12"
                   )}
-                  style={
-                    isActive
-                      ? {
-                          background: "rgba(255,255,255,0.14)",
-                          boxShadow:
-                            "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
-                          border: "1px solid rgba(255,255,255,0.12)",
-                        }
-                      : {}
-                  }
+                  style={isActive ? {
+                    background: "rgba(255,255,255,0.14)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  } : {}}
                 >
                   {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt=""
-                      className={cn(
-                        "rounded-full object-cover transition-all",
-                        isActive
-                          ? "h-8 w-8 ring-2 ring-white/80"
-                          : "h-7 w-7 opacity-70"
-                      )}
-                    />
+                    <img src={avatarUrl} alt=""
+                      className={cn("rounded-full object-cover transition-all", isActive ? "h-8 w-8 ring-2 ring-white/80" : "h-7 w-7 opacity-70")} />
                   ) : (
                     <div
-                      className={cn(
-                        "rounded-full grid place-items-center text-white font-bold transition-all",
-                        isActive
-                          ? "h-8 w-8 text-sm ring-2 ring-white/80"
-                          : "h-7 w-7 text-xs opacity-70"
-                      )}
+                      className={cn("rounded-full grid place-items-center text-white font-bold transition-all",
+                        isActive ? "h-8 w-8 text-sm ring-2 ring-white/80" : "h-7 w-7 text-xs opacity-70")}
                       style={{ background: "var(--gradient-primary)" }}
-                    >
-                      {initials}
-                    </div>
+                    >{initials}</div>
                   )}
                 </div>
               </Link>
             );
           }
+
+          // Chat item: may use a callback instead of Link
+          if (item.to === "/chat" && onChatOpen) {
+            const isActive = active === item.to;
+            const Icon = item.icon;
+            return (
+              <button key={item.to} onClick={onChatOpen} aria-label={item.label} className="mx-0.5">
+                <div
+                  className={cn(
+                    "relative h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
+                    isActive ? "px-4" : "w-12"
+                  )}
+                  style={isActive ? {
+                    background: "rgba(255,255,255,0.14)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  } : {}}
+                >
+                  <Icon className={cn("transition-all duration-200", isActive ? "h-[22px] w-[22px] text-white" : "h-[22px] w-[22px] text-white/45")}
+                    strokeWidth={isActive ? 2.4 : 1.8} />
+                  {badge[item.to] != null && badge[item.to]! > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-[7px] w-[7px] rounded-full" style={{ background: "#ed4956" }} />
+                  )}
+                </div>
+              </button>
+            );
+          }
+
           return (
-            <NavPill
-              key={item.to}
-              item={item}
-              active={active}
-              badge={badge[item.to]}
-            />
+            <NavPill key={item.to} item={item} active={active} badge={badge[item.to]} />
           );
         })}
       </nav>
