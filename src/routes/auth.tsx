@@ -191,7 +191,7 @@ function AuthPage() {
 
   return (
     <div className="min-h-screen flex bg-background text-foreground overflow-x-hidden">
-      {/* Ambient orbs */}}
+      {/* Ambient orbs */}
       <div className="fixed inset-0 pointer-events-none" aria-hidden>
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full"
           style={{ background: "radial-gradient(ellipse, oklch(0.55 0.22 280 / 0.35) 0%, transparent 70%)", filter: "blur(60px)" }} />
