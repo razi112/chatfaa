@@ -6,6 +6,7 @@ import {
   Plus, UsersRound, Settings2, LogOut as LeaveIcon, Trash2, Pencil, Shield, ShieldOff,
   Hash, Smile, Eraser, Ban, MoreVertical, Trash, ArrowLeft, Menu,
   User, Camera, KeyRound, AlertTriangle, Save, Play, Home,
+  Reply, Copy, Forward, Pin, Star, Info,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -1437,58 +1438,192 @@ function ReadTick({ readAt }: { readAt: string | null | undefined }) {
   );
 }
 
-// ─── Message bubble ───────────────────────────────────────────
-function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, isLast }: {
-  content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
-  readAt?: string | null; isLast?: boolean;
+// ─── Message context menu ─────────────────────────────────────
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+function MessageContextMenu({
+  x, y, mine, content, onClose, onDelete, onReply, onReact,
+}: {
+  x: number; y: number; mine: boolean; content: string;
+  onClose: () => void; onDelete?: () => void;
+  onReply: () => void; onReact: (e: string) => void;
 }) {
-  const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
-  // Show tick on every sent message in a DM (readAt !== undefined means it's a DM sent by me)
-  const showTick = mine && readAt !== undefined;
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click / escape
+  useEffect(() => {
+    function handle(e: MouseEvent | TouchEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("mousedown", handle);
+    document.addEventListener("touchstart", handle);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("touchstart", handle);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
+
+  // Clamp to viewport
+  const menuW = 220; const menuH = 320;
+  const vw = window.innerWidth; const vh = window.innerHeight;
+  const left = Math.min(x, vw - menuW - 8);
+  const top  = Math.min(y, vh - menuH - 8);
+
+  const menuItems = [
+    { icon: Reply,   label: "Reply",   action: () => { onReply(); onClose(); } },
+    { icon: Copy,    label: "Copy",    action: () => { navigator.clipboard.writeText(content); toast.success("Copied"); onClose(); } },
+    { icon: Smile,   label: "React",   action: () => {} }, // opens emoji row
+    { icon: Forward, label: "Forward", action: () => { toast("Forward coming soon"); onClose(); } },
+    { icon: Pin,     label: "Pin",     action: () => { toast("Pin coming soon"); onClose(); } },
+    { icon: Star,    label: "Star",    action: () => { toast("Starred"); onClose(); } },
+    { icon: Info,    label: "Message info", action: () => { toast("Info coming soon"); onClose(); } },
+  ];
 
   return (
-    <li className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
-      {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">{senderName}</span>}
-      <div className={cn("group flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%]", mine ? "flex-row-reverse" : "flex-row")}>
-        {onDelete && (
-          <button onClick={onDelete}
-            className="shrink-0 h-6 w-6 rounded-lg grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
-            title="Delete" aria-label="Delete message">
-            <Trash className="h-3.5 w-3.5" />
+    <div
+      ref={ref}
+      className="fixed z-[999] flex flex-col"
+      style={{ left, top, minWidth: menuW }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Emoji reaction bar */}
+      <div className="flex items-center gap-1 px-3 py-2 rounded-2xl mb-1.5 shadow-xl"
+        style={{ background: "oklch(0.18 0.016 268)", border: "1px solid oklch(0.28 0.018 268)" }}>
+        {QUICK_REACTIONS.map(e => (
+          <button key={e} onClick={() => { onReact(e); onClose(); }}
+            className="text-xl leading-none transition-transform active:scale-125 hover:scale-125 w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10">
+            {e}
           </button>
-        )}
-        {isSticker ? (
-          <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
-            <span className="text-4xl leading-none select-none">{content}</span>
-            {showTick && (
-              <div className="mt-0.5 mr-0.5"><ReadTick readAt={readAt} /></div>
-            )}
-          </div>
-        ) : (
-          <div
-            className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed", mine ? "text-white" : "text-foreground")}
-            style={{
-              background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
-              borderRadius: mine
-                ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px")
-                : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
-              border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
-              boxShadow: mine
-                ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)"
-                : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
-            }}
-          >
-            {/* Text + tick sit on the same line; tick floats to bottom-right */}
-            <span>{content}</span>
-            {showTick && (
-              <span className="inline-flex items-end ml-1.5 -mb-0.5 align-bottom opacity-90">
-                <ReadTick readAt={readAt} />
-              </span>
-            )}
-          </div>
+        ))}
+        <button onClick={() => {}} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors">
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Context menu */}
+      <div className="rounded-2xl overflow-hidden shadow-xl"
+        style={{ background: "oklch(0.16 0.016 268)", border: "1px solid oklch(0.28 0.018 268)" }}>
+        {menuItems.map(({ icon: Icon, label, action }) => (
+          <button key={label} onClick={action}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-white/6 active:bg-white/10 transition-colors text-left">
+            <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+            {label}
+          </button>
+        ))}
+        {onDelete && (
+          <>
+            <div className="h-px mx-3" style={{ background: "oklch(0.28 0.018 268)" }} />
+            <button onClick={() => { onDelete(); onClose(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 active:bg-destructive/15 transition-colors text-left">
+              <Trash className="h-4 w-4 shrink-0" />
+              Delete
+            </button>
+          </>
         )}
       </div>
-    </li>
+    </div>
+  );
+}
+
+// ─── Message bubble ───────────────────────────────────────────
+function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, isLast, onReply }: {
+  content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
+  readAt?: string | null; isLast?: boolean; onReply?: () => void;
+}) {
+  const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
+  const showTick = mine && readAt !== undefined;
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [reactions, setReactions] = useState<string[]>([]);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openMenu(x: number, y: number) { setMenu({ x, y }); }
+
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    openMenu(e.clientX, e.clientY);
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    longPressRef.current = setTimeout(() => {
+      openMenu(t.clientX, t.clientY);
+    }, 500);
+  }
+
+  function handleTouchEnd() {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+  }
+
+  function handleTouchMove() {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+  }
+
+  return (
+    <>
+      <li
+        className={cn("flex flex-col select-none", mine ? "items-end" : "items-start")}
+        onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+      >
+        {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">{senderName}</span>}
+        <div className={cn("group flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%]", mine ? "flex-row-reverse" : "flex-row")}>
+          {isSticker ? (
+            <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+              <span className="text-4xl leading-none select-none">{content}</span>
+              {showTick && <div className="mt-0.5 mr-0.5"><ReadTick readAt={readAt} /></div>}
+            </div>
+          ) : (
+            <div
+              className={cn("min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed cursor-pointer active:opacity-80 transition-opacity", mine ? "text-white" : "text-foreground")}
+              style={{
+                background: mine ? "var(--gradient-primary)" : "oklch(0.18 0.016 268)",
+                borderRadius: mine
+                  ? (grouped ? "18px 6px 18px 18px" : "18px 6px 6px 18px")
+                  : (grouped ? "6px 18px 18px 18px" : "6px 18px 18px 18px"),
+                border: mine ? "none" : "1px solid oklch(0.25 0.016 268)",
+                boxShadow: mine
+                  ? "0 4px 16px -4px oklch(0.65 0.22 280 / 0.4)"
+                  : "0 2px 8px -2px oklch(0 0 0 / 0.3)",
+              }}
+            >
+              <span>{content}</span>
+              {showTick && (
+                <span className="inline-flex items-end ml-1.5 -mb-0.5 align-bottom opacity-90">
+                  <ReadTick readAt={readAt} />
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Reactions row */}
+        {reactions.length > 0 && (
+          <div className={cn("flex gap-0.5 mt-0.5 flex-wrap", mine ? "justify-end mr-2" : "ml-2")}>
+            {[...new Set(reactions)].map(r => (
+              <span key={r} className="text-base leading-none bg-black/20 rounded-full px-1.5 py-0.5 text-xs">
+                {r} {reactions.filter(x => x === r).length > 1 && reactions.filter(x => x === r).length}
+              </span>
+            ))}
+          </div>
+        )}
+      </li>
+
+      {menu && (
+        <MessageContextMenu
+          x={menu.x} y={menu.y}
+          mine={mine} content={content}
+          onClose={() => setMenu(null)}
+          onDelete={onDelete}
+          onReply={onReply ?? (() => {})}
+          onReact={(e) => setReactions(prev => [...prev, e])}
+        />
+      )}
+    </>
   );
 }
 
@@ -1705,7 +1840,9 @@ function ChatWindow({ friend, meId, online, isBlocked, onChatClosed, onBack }: {
                 <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
                   readAt={mine ? m.read_at : undefined}
                   isLast={isLast}
-                  onDelete={mine ? () => deleteMessage(m.id) : undefined} />
+                  onDelete={mine ? () => deleteMessage(m.id) : undefined}
+                  onReply={() => setText(`↩ "${m.content.slice(0, 40)}${m.content.length > 40 ? "…" : ""}" `)}
+                />
               );
             })}
           </ul>
