@@ -15,10 +15,18 @@ export default defineConfig({
   nitro: {
     // Build for Vercel serverless deployment
     preset: "vercel",
-    // Ensure tslib is bundled into the serverless function (needed by @supabase/functions-js)
-    bundledStorage: [],
+    // Force tslib to be fully inlined — never left as an external require()
+    // Without this, @supabase/functions-js crashes at runtime with ERR_MODULE_NOT_FOUND
     externals: {
-      inline: ["tslib"],
+      inline: ["tslib", "@supabase/functions-js"],
+      traceInclude: ["tslib"],
+    },
+    rollupConfig: {
+      external: (id: string) => {
+        // Never externalize tslib — always bundle it
+        if (id === "tslib" || id.includes("tslib")) return false;
+        return undefined;
+      },
     },
   },
 });
