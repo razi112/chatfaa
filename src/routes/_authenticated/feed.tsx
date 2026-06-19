@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { BottomNav } from "@/components/BottomNav";
 import { NotificationBell } from "@/components/NotificationBell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { UploadPostWizard } from "@/components/UploadPostWizard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,7 +273,7 @@ function FeedPage() {
         username={profiles[user.id]?.username}
       />
 
-      <UploadPostDialog open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
+      <UploadPostWizard open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
     </div>
   );
 }

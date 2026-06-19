@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { UploadPostWizard } from "@/components/UploadPostWizard";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({ userId: z.string().optional() });
@@ -343,7 +344,7 @@ function ProfilePage() {
         )}
       </div>
 
-      <UploadPostDialog
+      <UploadPostWizard
         open={uploadPostOpen}
         onOpenChange={setUploadPostOpen}
         userId={user.id}
@@ -720,87 +721,6 @@ function EditProfileDialog({ open, onOpenChange, profile, meId, onSaved }: {
             className="w-full h-10 rounded-xl font-semibold"
             style={{ background: "var(--gradient-primary)" }}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Upload post dialog ────────────────────────────────────────
-function UploadPostDialog({ open, onOpenChange, userId, onUploaded }: {
-  open: boolean; onOpenChange: (v: boolean) => void; userId: string; onUploaded: () => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [caption, setCaption] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  function reset() { setFile(null); setPreview(null); setCaption(""); }
-  function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 20 * 1024 * 1024) { toast.error("Image must be under 20 MB"); return; }
-    setFile(f); setPreview(URL.createObjectURL(f));
-  }
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith("image/")) { setFile(f); setPreview(URL.createObjectURL(f)); }
-  }
-  async function upload() {
-    setUploading(true);
-    try {
-      let image_url: string | null = null;
-      if (file) {
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${userId}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("posts").upload(path, file, { upsert: false });
-        if (upErr) { toast.error("Upload failed: " + upErr.message); return; }
-        const { data: urlData } = supabase.storage.from("posts").getPublicUrl(path);
-        image_url = urlData.publicUrl;
-      }
-      if (!image_url && !caption.trim()) { toast.error("Add an image or write a caption."); return; }
-      const { error } = await (supabase as any).from("posts").insert({ user_id: userId, image_url, caption: caption.trim() || null });
-      if (error) { toast.error(error.message); return; }
-      toast.success("Post uploaded!"); onUploaded(); reset(); onOpenChange(false);
-    } finally { setUploading(false); }
-  }
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-2rem)]">
-        <DialogHeader><DialogTitle className="flex items-center gap-2">
-          <ImagePlus className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} /> New post
-        </DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          {!preview ? (
-            <div onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
-              onClick={() => inputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer py-10 transition-all hover:border-primary/50"
-              style={{ borderColor: "oklch(0.28 0.018 268)" }}>
-              <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
-                <Upload className="h-5 w-5 text-primary" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium">Drop image here or click to browse</p>
-                <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP · max 20 MB</p>
-              </div>
-              <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={pickFile} />
-            </div>
-          ) : (
-            <div className="relative rounded-2xl overflow-hidden aspect-square">
-              <img src={preview} alt="" className="w-full h-full object-cover" />
-              <button onClick={reset} className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-all">
-                <X className="h-4 w-4 text-white" />
-              </button>
-            </div>
-          )}
-          <Textarea value={caption} onChange={(e) => setCaption(e.target.value)}
-            placeholder="Write a caption… (optional)" maxLength={2200} rows={3} className="rounded-xl resize-none" />
-          <Button onClick={upload} disabled={uploading || (!file && !caption.trim())}
-            className="w-full h-10 rounded-xl font-semibold" style={{ background: "var(--gradient-primary)" }}>
-            {uploading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</span> : "Share post"}
           </Button>
         </div>
       </DialogContent>

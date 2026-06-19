@@ -1228,14 +1228,25 @@ function FriendsList({ accepted, incoming, outgoing, presence, onMessage }: {
   );
 }
 
-function FriendRow({ profile, online, children }: { profile: Profile; online: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/5 transition-colors">
+function FriendRow({ profile, online, children, linkToProfile = false }: { profile: Profile; online: boolean; children: React.ReactNode; linkToProfile?: boolean }) {
+  const nameAndAvatar = (
+    <>
       <div className="relative shrink-0"><UserAvatar src={profile.avatar_url} name={profile.username} />{online && <OnlineDot />}</div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium flex items-center gap-1">{profile.display_name || profile.username}{profile.is_verified && <VerifiedBadge size={12} tooltip={false} />}</div>
         <div className="truncate text-xs text-muted-foreground">@{profile.username}</div>
       </div>
+    </>
+  );
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/5 transition-colors">
+      {linkToProfile ? (
+        <Link to="/profile" search={{ userId: profile.id } as any} className="flex items-center gap-3 min-w-0 flex-1">
+          {nameAndAvatar}
+        </Link>
+      ) : (
+        <>{nameAndAvatar}</>
+      )}
       <div className="flex items-center gap-1 shrink-0">{children}</div>
     </div>
   );
@@ -1271,7 +1282,7 @@ function SearchUsers({ meId }: { meId: string }) {
       {!loading && q.length >= 2 && results.length === 0 && <div className="text-xs text-muted-foreground px-1">No matches.</div>}
       <div className="space-y-0.5">
         {results.map((p) => (
-          <FriendRow key={p.id} profile={p} online={false}>
+          <FriendRow key={p.id} profile={p} online={false} linkToProfile>
             <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs gap-1.5" onClick={() => addFriend(p.id)}>
               <UserPlus className="h-3.5 w-3.5" /> Add
             </Button>
