@@ -8,25 +8,12 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
   nitro: {
-    // Build for Vercel serverless deployment
     preset: "vercel",
-    // Force tslib to be fully inlined — never left as an external require()
-    // Without this, @supabase/functions-js crashes at runtime with ERR_MODULE_NOT_FOUND
     externals: {
-      inline: ["tslib", "@supabase/functions-js"],
-      traceInclude: ["tslib"],
-    },
-    rollupConfig: {
-      external: (id: string) => {
-        // Never externalize tslib — always bundle it
-        if (id === "tslib" || id.includes("tslib")) return false;
-        return undefined;
-      },
+      inline: ["tslib"],
     },
   },
 });
