@@ -508,11 +508,11 @@ function NoteComposer({ meId, existingNote, onClose, onSaved }: {
 
           <div className="px-5 space-y-4 pb-5">
             {/* Text input */}
-            <div className="relative rounded-2xl px-4 py-3" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
-              <div className="flex items-center gap-2 mb-1">
+            <div className="relative rounded-2xl px-4 py-4 text-center" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-center gap-2 mb-2">
                 {emoji && <span className="text-lg">{emoji}</span>}
                 <input
-                  className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
+                  className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground text-center"
                   value={text}
                   onChange={e => setText(e.target.value.slice(0, 60))}
                   placeholder="What's on your mind?"

@@ -425,8 +425,8 @@ function ChatApp() {
         </>
       )}
 
-      {/* ── Mobile: slide-over sheet ── */}
-      {isMobile && (
+      {/* ── Mobile: slide-over sheet (only when a chat IS open) ── */}
+      {isMobile && active && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="p-0 w-[85vw] max-w-[340px] border-r" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
             {sidebarContent}
@@ -436,11 +436,16 @@ function ChatApp() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-w-0 flex flex-col" style={{ background: "oklch(0.12 0.014 268)" }}>
-        {activeFriend ? (
+        {/* Mobile with no chat open: show sidebar inline as full screen */}
+        {isMobile && !active ? (
+          <div className="flex flex-col h-full" style={{ background: "oklch(0.13 0.015 268)" }}>
+            {sidebarContent}
+          </div>
+        ) : activeFriend ? (
           <ChatWindow
             friend={activeFriend} meId={user.id} online={presence.has(activeFriend.id)}
             isBlocked={blockedIds.has(activeFriend.id)} onChatClosed={() => setActive(null)}
-            onBack={isMobile ? () => setSidebarOpen(true) : undefined}
+            onBack={isMobile ? () => setActive(null) : undefined}
           />
         ) : activeGroup ? (
           <GroupChatWindow
@@ -448,20 +453,19 @@ function ChatApp() {
             members={allMembers.filter((m) => m.group_id === activeGroup.id)}
             profiles={profiles} friends={acceptedFriends} presence={presence}
             onLeft={() => setActive(null)}
-            onBack={isMobile ? () => setSidebarOpen(true) : undefined}
+            onBack={isMobile ? () => setActive(null) : undefined}
           />
         ) : (
           <EmptyState onAdd={() => { setTab("search"); if (isMobile) setSidebarOpen(true); }} isMobile={isMobile} onOpenSidebar={() => setSidebarOpen(true)} />
         )}
       </main>
 
-      {/* ── Mobile bottom nav (when no chat open) ── */}
+      {/* ── Mobile bottom nav (only on list view, not inside a chat) ── */}
       {isMobile && !active && (
         <BottomNav
           active="/chat"
           avatarUrl={me?.avatar_url ?? null}
           username={me?.username}
-          onChatOpen={() => setSidebarOpen(true)}
         />
       )}
 
