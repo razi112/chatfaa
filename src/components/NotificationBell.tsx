@@ -107,7 +107,7 @@ export function NotificationBell({ meId }: Props) {
     }
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const panelWidth = 320;
+      const panelWidth = Math.min(320, window.innerWidth - 16);
       const panelMaxHeight = 440;
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
@@ -190,10 +190,11 @@ export function NotificationBell({ meId }: Props) {
       {open && panelPos && (
         <div
           ref={panelRef}
-          className="fixed z-[9999] w-80 rounded-2xl shadow-2xl overflow-hidden"
+          className="fixed z-[9999] rounded-2xl shadow-2xl overflow-hidden"
           style={{
             top: panelPos.top,
             left: panelPos.left,
+            width: "min(320px, calc(100vw - 1rem))",
             background: "oklch(0.15 0.015 268 / 0.98)",
             border: "1px solid oklch(0.26 0.018 268)",
             backdropFilter: "blur(20px)",

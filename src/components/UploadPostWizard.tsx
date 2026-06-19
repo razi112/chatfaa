@@ -87,18 +87,29 @@ const FILTERS = [
 ];
 
 // ─── Aspect ratios ─────────────────────────────────────────────
+// Post ratios — all standard social sizes
 const CROP_RATIOS = [
-  { ratio: "1/1" as const, label: "1:1", icon: "⬛" },
-  { ratio: "4/5" as const, label: "4:5", icon: "▬" },
-  { ratio: "1080/566" as const, label: "1.91:1", icon: "▭" },
-];
+  { ratio: "9/16"      as const, label: "9:16",   icon: "▐",  desc: "Portrait / Reel" },
+  { ratio: "4/5"       as const, label: "4:5",    icon: "▮",  desc: "Portrait tall" },
+  { ratio: "3/4"       as const, label: "3:4",    icon: "▩",  desc: "Portrait" },
+  { ratio: "2/3"       as const, label: "2:3",    icon: "▪",  desc: "Portrait wide" },
+  { ratio: "1/1"       as const, label: "1:1",    icon: "⬛",  desc: "Square" },
+  { ratio: "1080/566"  as const, label: "1.91:1", icon: "▬",  desc: "Landscape" },
+  { ratio: "16/9"      as const, label: "16:9",   icon: "▭",  desc: "Wide" },
+] as const;
 
-// helper
-function snapPostRatio(w: number, h: number) {
+export type CropRatio = typeof CROP_RATIOS[number]["ratio"];
+
+// Auto-snap to best ratio from image natural dimensions
+function snapPostRatio(w: number, h: number): CropRatio {
   const r = w / h;
-  if (r < 0.8) return "4/5";
-  if (r > 1.6) return "1080/566";
-  return "1/1";
+  if (r < 0.45) return "9/16";       // Very tall
+  if (r < 0.65) return "2/3";        // Tall portrait
+  if (r < 0.80) return "3/4";        // Portrait
+  if (r < 0.95) return "4/5";        // Portrait tall
+  if (r < 1.20) return "1/1";        // Square
+  if (r < 1.60) return "1080/566";   // Landscape
+  return "16/9";                     // Wide landscape
 }
 function formatSec(s: number) {
   const m = Math.floor(s / 60), sec = Math.floor(s % 60);
@@ -135,7 +146,7 @@ export function UploadPostWizard({ open, onOpenChange, userId, onUploaded }: Upl
 
   // Step 2
   const [activeItemIdx, setActiveItemIdx] = useState(0);
-  const [cropRatio, setCropRatio] = useState<"1/1" | "4/5" | "1080/566">("4/5");
+  const [cropRatio, setCropRatio] = useState<CropRatio>("4/5");
   const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJ);
   const [selectedFilter, setSelectedFilter] = useState("Normal");
   const [autoEnhance, setAutoEnhance] = useState(false);
@@ -185,7 +196,7 @@ export function UploadPostWizard({ open, onOpenChange, userId, onUploaded }: Upl
       setMediaItems([items[0]]);
       if (!isVideo) {
         const img = new window.Image();
-        img.onload = () => setCropRatio(snapPostRatio(img.naturalWidth, img.naturalHeight) as typeof cropRatio);
+        img.onload = () => setCropRatio(snapPostRatio(img.naturalWidth, img.naturalHeight));
         img.src = items[0].preview;
       }
     } else {
@@ -275,7 +286,7 @@ export function UploadPostWizard({ open, onOpenChange, userId, onUploaded }: Upl
   return (
     <>
       <Dialog open={open && !musicPickerOpen} onOpenChange={handleClose}>
-        <DialogContent className="rounded-3xl max-w-md w-[calc(100vw-1rem)] p-0 gap-0 overflow-hidden max-h-[95dvh] flex flex-col"
+        <DialogContent className="rounded-3xl max-w-md w-[calc(100vw-0.5rem)] sm:w-[calc(100vw-1rem)] p-0 gap-0 overflow-hidden max-h-[95dvh] flex flex-col"
           style={{ background: "oklch(0.13 0.015 268)" }}>
 
           {/* ── Step indicator header ── */}
@@ -287,20 +298,20 @@ export function UploadPostWizard({ open, onOpenChange, userId, onUploaded }: Upl
               </button>
             </div>
             {/* Pill steps */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pb-0.5">
               {STEPS.map((label, i) => (
-                <div key={label} className="flex items-center gap-1.5">
+                <div key={label} className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => i < step && setStep(i)}
                     className={cn(
-                      "h-6 rounded-full text-[10px] font-semibold transition-all px-2.5",
+                      "h-6 rounded-full text-[9px] sm:text-[10px] font-semibold transition-all px-2",
                       i === step ? "text-white" : i < step ? "text-white/70 hover:text-white cursor-pointer" : "text-muted-foreground/40 cursor-default"
                     )}
                     style={i === step ? { background: "var(--gradient-primary)" } : i < step ? { background: "oklch(0.65 0.22 280 / 0.30)" } : { background: "oklch(0.20 0.016 268)" }}
                   >
                     {i < step ? <CheckCircle2 className="h-3 w-3 inline" /> : null} {label}
                   </button>
-                  {i < STEPS.length - 1 && <div className={cn("h-px flex-1 min-w-[6px]", i < step ? "bg-primary/40" : "bg-white/10")} />}
+                  {i < STEPS.length - 1 && <div className={cn("h-px w-1.5 shrink-0", i < step ? "bg-primary/40" : "bg-white/10")} />}
                 </div>
               ))}
             </div>
@@ -446,7 +457,7 @@ function Step2MediaEdit({
   setActiveItemIdx: (i: number) => void; inputRef: React.RefObject<HTMLInputElement | null>;
   onPickFiles: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDrop: (e: React.DragEvent) => void; onRemove: (i: number) => void;
-  cropRatio: "1/1" | "4/5" | "1080/566"; setCropRatio: (r: "1/1" | "4/5" | "1080/566") => void;
+  cropRatio: CropRatio; setCropRatio: (r: CropRatio) => void;
   adjustments: Adjustments; setAdjustments: (a: Adjustments) => void;
   selectedFilter: string; setSelectedFilter: (f: string) => void;
   autoEnhance: boolean; setAutoEnhance: (v: boolean) => void;
@@ -544,13 +555,18 @@ function Step2MediaEdit({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <ZoomIn className="h-3.5 w-3.5" /> Crop
             </p>
-            <div className="flex gap-2">
-              {CROP_RATIOS.map(({ ratio, label, icon }) => (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {CROP_RATIOS.map(({ ratio, label, icon, desc }) => (
                 <button key={ratio} onClick={() => setCropRatio(ratio)}
-                  className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border flex-1 justify-center",
-                    cropRatio === ratio ? "border-primary/60 text-foreground bg-primary/10" : "border-border text-muted-foreground hover:border-primary/30"
+                  className={cn(
+                    "flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all border shrink-0",
+                    cropRatio === ratio
+                      ? "border-primary/60 text-foreground bg-primary/10"
+                      : "border-border text-muted-foreground hover:border-primary/30"
                   )}>
-                  <span className="text-[11px]">{icon}</span>{label}
+                  <span className="text-base leading-none">{icon}</span>
+                  <span className="font-semibold">{label}</span>
+                  <span className="text-[10px] opacity-60 whitespace-nowrap">{desc}</span>
                 </button>
               ))}
             </div>
@@ -699,7 +715,7 @@ function Step3PostDetails({
               <div className="flex-1 min-w-0 text-left">
                 <p className="font-medium truncate text-xs leading-tight">{selectedMusic.track.trackName}</p>
                 <p className="text-muted-foreground truncate text-[11px]">{selectedMusic.track.artistName}
-                  <span className="ml-2 text-primary/70">· from {formatSec(selectedMusic.startSec)}</span></p>
+                  <span className="ml-2 text-primary/70">· 30s preview</span></p>
               </div>
               <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedMusic(null); }}
                 className="shrink-0 h-6 w-6 rounded-full grid place-items-center hover:bg-white/10 transition-all">
@@ -1048,24 +1064,19 @@ function Step6Publish({
 }
 
 // ─── Music Picker Dialog ───────────────────────────────────────
-const CLIP_DUR = 15;
-const PREV_DUR = 30;
-
 function MusicPickerDialog({ open, onOpenChange, onSelect }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   onSelect: (music: SelectedMusic) => void;
 }) {
-  const [step, setStep] = useState<"search" | "trim">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MusicTrack[]>([]);
   const [searching, setSearching] = useState(false);
-  const [pendingTrack, setPendingTrack] = useState<MusicTrack | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!open) { audioRef.current?.pause(); setPreviewId(null); setQuery(""); setResults([]); setStep("search"); setPendingTrack(null); }
+    if (!open) { audioRef.current?.pause(); setPreviewId(null); setQuery(""); setResults([]); }
   }, [open]);
 
   useEffect(() => {
@@ -1088,187 +1099,71 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
     else {
       audioRef.current?.pause();
       const a = new Audio(track.previewUrl);
-      a.play().catch(() => {}); a.onended = () => setPreviewId(null);
+      a.loop = true;
+      a.play().catch(() => {});
       audioRef.current = a; setPreviewId(track.trackId);
     }
   }
 
-  function goToTrim(track: MusicTrack) {
+  function selectTrack(track: MusicTrack) {
     audioRef.current?.pause(); setPreviewId(null);
-    setPendingTrack(track); setStep("trim");
+    onSelect({ track, startSec: 0 });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] flex flex-col max-h-[92dvh] p-0 overflow-hidden"
+      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)] flex flex-col max-h-[92dvh] p-0 overflow-hidden"
         style={{ background: "oklch(0.13 0.015 268)" }}>
-        {step === "search" && (
-          <>
-            <div className="px-5 pt-5 pb-3 shrink-0">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 mb-3">
-                  <Music className="h-5 w-5 text-primary" /> Add Music
-                </DialogTitle>
-              </DialogHeader>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search songs, artists…" className="pl-9 rounded-xl" autoFocus />
+        <div className="px-5 pt-5 pb-3 shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 mb-3">
+              <Music className="h-5 w-5 text-primary" /> Add Music
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search songs, artists…" className="pl-9 rounded-xl" autoFocus />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
+          {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+          {!searching && query && results.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>}
+          {!searching && !query && (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <div className="h-12 w-12 rounded-2xl grid place-items-center"
+                style={{ background: "oklch(0.65 0.22 280 / 0.10)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                <Music className="h-5 w-5 text-primary" />
               </div>
+              <p className="text-sm text-muted-foreground">Search for a song to add</p>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
-              {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-              {!searching && query && results.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>}
-              {!searching && !query && (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                    style={{ background: "oklch(0.65 0.22 280 / 0.10)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
-                    <Music className="h-5 w-5 text-primary" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Search for a song to add</p>
+          )}
+          {results.map((track) => {
+            const isPlaying = previewId === track.trackId;
+            return (
+              <div key={track.trackId}
+                className="flex items-center gap-3 px-2 py-2 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
+                onClick={() => selectTrack(track)}>
+                <div className="relative shrink-0">
+                  <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-lg object-cover" />
+                  {isPlaying && <div className="absolute inset-0 rounded-lg bg-black/40 flex items-center justify-center">
+                    <div className="h-3 w-3 rounded-full bg-white animate-spin" style={{ animationDuration: "1.2s" }} />
+                  </div>}
                 </div>
-              )}
-              {results.map((track) => {
-                const isPlaying = previewId === track.trackId;
-                return (
-                  <div key={track.trackId}
-                    className="flex items-center gap-3 px-2 py-2 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
-                    onClick={() => goToTrim(track)}>
-                    <div className="relative shrink-0">
-                      <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-lg object-cover" />
-                      {isPlaying && <div className="absolute inset-0 rounded-lg bg-black/40 flex items-center justify-center">
-                        <div className="h-3 w-3 rounded-full bg-white animate-spin" style={{ animationDuration: "1.2s" }} />
-                      </div>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{track.trackName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
-                    </div>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); togglePreview(track); }}
-                      className={cn("h-8 w-8 rounded-full shrink-0 grid place-items-center transition-all",
-                        isPlaying ? "bg-primary text-white" : "border border-border text-muted-foreground hover:text-foreground hover:border-primary/50")}>
-                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {step === "trim" && pendingTrack && (
-          <MusicTrimStep track={pendingTrack}
-            onBack={() => { setStep("search"); setPendingTrack(null); }}
-            onConfirm={(startSec) => onSelect({ track: pendingTrack, startSec })} />
-        )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{track.trackName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); togglePreview(track); }}
+                  className={cn("h-8 w-8 rounded-full shrink-0 grid place-items-center transition-all",
+                    isPlaying ? "bg-primary text-white" : "border border-border text-muted-foreground hover:text-foreground hover:border-primary/50")}>
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ─── Music Trim Step ───────────────────────────────────────────
-function MusicTrimStep({ track, onBack, onConfirm }: {
-  track: MusicTrack; onBack: () => void; onConfirm: (startSec: number) => void;
-}) {
-  const CLIP = CLIP_DUR; const TOTAL = PREV_DUR; const MAX_START = TOTAL - CLIP;
-  const startSecRef = useRef(0);
-  const [startSec, setStartSec] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartSec = useRef(0);
-
-  useEffect(() => {
-    const a = new Audio(track.previewUrl);
-    a.currentTime = 0;
-    a.ontimeupdate = () => {
-      setCurrentTime(a.currentTime);
-      if (a.currentTime >= startSecRef.current + CLIP) a.currentTime = startSecRef.current;
-    };
-    a.play().catch(() => {}); audioRef.current = a; setPlaying(true);
-    return () => { a.pause(); a.src = ""; };
-  }, [track.previewUrl]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function seekTo(sec: number) {
-    const clamped = Math.max(0, Math.min(sec, MAX_START));
-    startSecRef.current = clamped; setStartSec(clamped);
-    if (audioRef.current) audioRef.current.currentTime = clamped;
-  }
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true); }
-  }
-  function onPointerDown(e: React.PointerEvent) {
-    e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
-    isDragging.current = true; dragStartX.current = e.clientX; dragStartSec.current = startSecRef.current;
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!isDragging.current) return;
-    const trackW = trackRef.current?.getBoundingClientRect().width ?? 1;
-    seekTo(dragStartSec.current + (e.clientX - dragStartX.current) * (TOTAL / trackW));
-  }
-  function onPointerUp(e: React.PointerEvent) {
-    e.currentTarget.releasePointerCapture(e.pointerId); isDragging.current = false;
-  }
-  function onTrackClick(e: React.MouseEvent) {
-    if (isDragging.current) return;
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    seekTo((e.clientX - rect.left) / rect.width * TOTAL - CLIP / 2);
-  }
-  const playheadRatio = Math.min(currentTime / TOTAL, 1);
-  const selLeft = (startSec / TOTAL) * 100;
-  const selWidth = (CLIP / TOTAL) * 100;
-
-  return (
-    <div className="flex flex-col h-full p-5 space-y-5">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/10 transition-all shrink-0">
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-        </button>
-        <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-xl object-cover shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm truncate">{track.trackName}</p>
-          <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
-        </div>
-        <button onClick={togglePlay}
-          className="h-9 w-9 rounded-full grid place-items-center shrink-0 transition-all text-white"
-          style={{ background: "var(--gradient-primary)" }}>
-          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs text-muted-foreground text-center">Drag to select a {CLIP}s clip</p>
-        <div ref={trackRef} className="relative h-14 rounded-xl overflow-hidden cursor-pointer select-none"
-          style={{ background: "oklch(0.18 0.016 268)" }} onClick={onTrackClick}>
-          <div className="absolute inset-y-0 rounded-xl border-2 border-primary/80 cursor-grab active:cursor-grabbing"
-            style={{ left: `${selLeft}%`, width: `${selWidth}%`, background: "oklch(0.65 0.22 280 / 0.25)", touchAction: "none" }}
-            onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
-            <div className="absolute inset-y-0 left-2 right-2 flex items-center justify-between">
-              <ChevronLeft className="h-3.5 w-3.5 text-primary/70" />
-              <ChevronRight className="h-3.5 w-3.5 text-primary/70" />
-            </div>
-          </div>
-          <div className="absolute inset-y-0 w-0.5 bg-white/80 pointer-events-none"
-            style={{ left: `${playheadRatio * 100}%` }} />
-          <div className="absolute inset-0 flex items-end justify-between px-2 pb-1 pointer-events-none">
-            <span className="text-[9px] text-muted-foreground/60">0:00</span>
-            <span className="text-[9px] text-muted-foreground/60">0:30</span>
-          </div>
-        </div>
-        <p className="text-xs text-center text-muted-foreground">
-          From {formatSec(startSec)} → {formatSec(startSec + CLIP)}
-        </p>
-      </div>
-
-      <Button onClick={() => onConfirm(startSec)} className="w-full h-11 rounded-2xl font-semibold gap-2"
-        style={{ background: "var(--gradient-primary)" }}>
-        <CheckCircle2 className="h-4 w-4" /> Use This Clip
-      </Button>
-    </div>
   );
 }

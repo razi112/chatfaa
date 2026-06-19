@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Heart, MessageCircle, Send, Plus, X, Play, Pause, Upload, Loader2,
-  ImagePlus, Home, Users, Settings, Music, Search, ChevronRight, ChevronLeft,
+  ImagePlus, Home, Users, Settings, Music, Search, ChevronRight,
   MoreHorizontal, Trash2, Camera, Volume2, VolumeX as VolumeXIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,7 +56,7 @@ type MusicTrack = {
 
 type SelectedMusic = {
   track: MusicTrack;
-  startSec: number; // 0–15 (clip within 30s preview)
+  startSec: number; // always 0 — full 30s preview
 };
 
 type Story = {
@@ -173,7 +173,7 @@ function FeedPage() {
     <div className="min-h-[100dvh] w-full flex bg-background text-foreground">
 
       {/* ── Left nav rail (desktop) ── */}
-      <aside className="hidden md:flex w-[60px] xl:w-[220px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top"
+      <aside className="hidden md:flex w-[60px] xl:w-[220px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top overflow-hidden"
         style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.18 0.016 268)" }}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-3 mb-4">
@@ -213,7 +213,7 @@ function FeedPage() {
 
       {/* ── Feed column ── */}
       <main className="flex-1 min-w-0 flex flex-col items-center overflow-x-hidden"
-        style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}>
+        style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}>
         {/* Top bar (mobile) */}
         <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-3 h-14 border-b safe-top"
           style={{ background: "oklch(0.11 0.015 270 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
@@ -703,16 +703,11 @@ function StoryMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0
 
   useEffect(() => {
     const audio = new Audio(previewUrl);
-    audio.loop = false;
+    audio.loop = true;
     audio.muted = false;
     audio.volume = 0.7;
     audio.currentTime = startSec;
     audio.play().catch(() => {});
-    audio.ontimeupdate = () => {
-      if (audio.currentTime >= startSec + CLIP_DURATION) {
-        audio.currentTime = startSec;
-      }
-    };
     audioRef.current = audio;
     return () => { audio.pause(); audio.src = ""; };
   }, [previewUrl, startSec]);
@@ -788,19 +783,42 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
   const [uploading, setUploading] = useState(false);
   const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<SelectedMusic | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function reset() {
     setFile(null); setPreview(null); setCaption("");
     setSelectedMusic(null); setMusicPickerOpen(false);
+    setVideoDuration(null);
   }
 
   function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 50 * 1024 * 1024) { toast.error("File must be under 50 MB"); return; }
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+
+    if (f.type.startsWith("video/")) {
+      // Validate video duration before accepting
+      const url = URL.createObjectURL(f);
+      const vid = document.createElement("video");
+      vid.preload = "metadata";
+      vid.onloadedmetadata = () => {
+        const dur = vid.duration;
+        URL.revokeObjectURL(url);
+        if (dur > 60) {
+          toast.error("Video must be 60 seconds or less");
+          return;
+        }
+        setVideoDuration(Math.round(dur));
+        setFile(f);
+        setPreview(URL.createObjectURL(f));
+      };
+      vid.src = url;
+    } else {
+      setVideoDuration(null);
+      setFile(f);
+      setPreview(URL.createObjectURL(f));
+    }
   }
 
   async function upload() {
@@ -818,7 +836,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
         media_url: urlData.publicUrl,
         media_type: isVideo ? "video" : "image",
         caption: caption.trim() || null,
-        duration_sec: isVideo ? 15 : 5,
+        duration_sec: isVideo ? Math.min(videoDuration ?? 60, 60) : 7,
         music_title: selectedMusic?.track.trackName ?? null,
         music_artist: selectedMusic?.track.artistName ?? null,
         music_artwork_url: selectedMusic?.track.artworkUrl100 ?? null,
@@ -837,7 +855,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
   return (
     <>
       <Dialog open={open && !musicPickerOpen} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)]">
+        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Camera className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
@@ -845,6 +863,21 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+
+            {/* Story rules info */}
+            <div className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs"
+              style={{ background: "oklch(0.65 0.22 280 / 0.08)", border: "1px solid oklch(0.65 0.22 280 / 0.18)" }}>
+              <div className="mt-0.5 shrink-0 h-4 w-4 rounded-full grid place-items-center"
+                style={{ background: "oklch(0.65 0.22 280 / 0.20)" }}>
+                <span className="text-[9px] font-bold text-primary">i</span>
+              </div>
+              <ul className="space-y-1 text-muted-foreground leading-relaxed">
+                <li><span className="text-foreground font-medium">🎥 Video</span> — up to 60 seconds</li>
+                <li><span className="text-foreground font-medium">📷 Photo</span> — shown for 7 seconds</li>
+                <li><span className="text-foreground font-medium">⏰ Expires</span> — disappears after 24 hours</li>
+              </ul>
+            </div>
+
             {/* Media picker */}
             {!preview ? (
               <div
@@ -858,7 +891,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium">Tap to pick photo or video</p>
-                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, MP4 · max 50 MB</p>
+                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, MP4 · max 50 MB · video max 60s</p>
                 </div>
                 <input ref={inputRef} type="file" accept="image/*,video/*" className="hidden" onChange={pickFile} />
               </div>
@@ -869,6 +902,20 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
                 ) : (
                   <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 )}
+                {/* Duration badge */}
+                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold text-white"
+                  style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}>
+                  {isVideo ? (
+                    <span>🎥 {videoDuration ?? "—"}s / 60s max</span>
+                  ) : (
+                    <span>📷 Shows for 7s</span>
+                  )}
+                </div>
+                {/* Expiry badge */}
+                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-white/80"
+                  style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
+                  ⏰ 24h
+                </div>
                 <button onClick={reset}
                   className="absolute top-2 right-2 h-7 w-7 rounded-full grid place-items-center bg-black/60 hover:bg-black/80 transition-all z-10">
                   <X className="h-4 w-4 text-white" />
@@ -901,7 +948,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
                     <p className="font-medium truncate text-xs leading-tight">{selectedMusic.track.trackName}</p>
                     <p className="text-muted-foreground truncate text-[11px]">
                       {selectedMusic.track.artistName}
-                      <span className="ml-2 text-primary/70">· from {formatSec(selectedMusic.startSec)}</span>
+                      <span className="ml-2 text-primary/70">· 30s preview</span>
                     </p>
                   </div>
                   <button type="button"
@@ -1037,7 +1084,7 @@ function PostCard({ post, profile, likes, meId }: {
   return (
     <article className="border-b" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
       {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-3 px-3 sm:px-4 py-3">
         <Link to="/profile" search={{ userId: post.user_id } as any}>
           <Avatar className="h-9 w-9 ring-2 ring-transparent hover:ring-primary/40 transition-all cursor-pointer">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
@@ -1127,7 +1174,7 @@ function PostCard({ post, profile, likes, meId }: {
       )}
 
       {/* Action bar */}
-      <div className="px-4 pt-3 pb-1 flex items-center gap-3">
+      <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center gap-2 sm:gap-3">
         {/* Like */}
         <button onClick={toggleLike} className="group flex items-center gap-1.5 -ml-1">
           <div className={cn("h-10 w-10 grid place-items-center rounded-xl transition-all active:scale-90",
@@ -1155,14 +1202,14 @@ function PostCard({ post, profile, likes, meId }: {
 
       {/* Likes summary */}
       {likeCount > 0 && (
-        <div className="px-4 pb-1">
+        <div className="px-3 sm:px-4 pb-1">
           <span className="text-sm font-semibold">{likeCount.toLocaleString()} {likeCount === 1 ? "like" : "likes"}</span>
         </div>
       )}
 
       {/* Caption */}
       {post.caption && (
-        <div className="px-4 pb-2">
+        <div className="px-3 sm:px-4 pb-2">
           <span className="text-sm font-semibold mr-2">{name}</span>
           <span className="text-sm">{post.caption}</span>
         </div>
@@ -1195,17 +1242,11 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
   // Auto-play muted, starting from the selected segment
   useEffect(() => {
     const audio = new Audio(previewUrl);
-    audio.loop = false;
+    audio.loop = true;
     audio.muted = true;
     audio.volume = 0.7;
     audio.currentTime = startSec;
     audio.play().catch(() => {});
-    // Loop within the 15s clip
-    audio.ontimeupdate = () => {
-      if (audio.currentTime >= startSec + CLIP_DURATION) {
-        audio.currentTime = startSec;
-      }
-    };
     audioRef.current = audio;
     return () => { audio.pause(); audio.src = ""; };
   }, [previewUrl, startSec]);
@@ -1400,7 +1441,7 @@ function QuickComment({ postId, meId }: { postId: string; meId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 pb-3 pt-1">
+    <div className="flex items-center gap-2 px-3 sm:px-4 pb-3 pt-1">
       <Input
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -1481,7 +1522,7 @@ function CommentsDrawer({ post, meId, onClose }: {
       <div
         className="flex flex-col rounded-t-3xl overflow-hidden w-full max-w-lg mx-auto"
         style={{
-          maxHeight: "85dvh",
+          maxHeight: "88dvh",
           background: "oklch(0.14 0.015 268 / 0.98)",
           backdropFilter: "blur(20px)",
           border: "1px solid oklch(0.26 0.018 268)",
@@ -1633,7 +1674,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
   return (
     <>
       <Dialog open={open && !musicPickerOpen} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)] max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ImagePlus className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
@@ -1714,7 +1755,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
                     <p className="font-medium truncate text-xs leading-tight">{selectedMusic.track.trackName}</p>
                     <p className="text-muted-foreground truncate text-[11px]">
                       {selectedMusic.track.artistName}
-                      <span className="ml-2 text-primary/70">· from {formatSec(selectedMusic.startSec)}</span>
+                      <span className="ml-2 text-primary/70">· 30s preview</span>
                     </p>
                   </div>
                   <button type="button"
@@ -1755,28 +1796,15 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
   );
 }
 
-// ── helpers ────────────────────────────────────────────────────
-const CLIP_DURATION = 15; // seconds of clip window
-const PREVIEW_DURATION = 30; // iTunes preview is always 30s
-
-function formatSec(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
-
-// ─── Music picker dialog (search + segment trim) ───────────────
+// ─── Music picker dialog (search + select full preview) ───────
 function MusicPickerDialog({ open, onOpenChange, onSelect }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSelect: (music: SelectedMusic) => void;
 }) {
-  // step: "search" | "trim"
-  const [step, setStep] = useState<"search" | "trim">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MusicTrack[]>([]);
   const [searching, setSearching] = useState(false);
-  const [pendingTrack, setPendingTrack] = useState<MusicTrack | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1786,7 +1814,6 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
     if (!open) {
       audioRef.current?.pause();
       setPreviewId(null); setQuery(""); setResults([]);
-      setStep("search"); setPendingTrack(null);
     }
   }, [open]);
 
@@ -1814,312 +1841,81 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
     } else {
       if (audioRef.current) audioRef.current.pause();
       const a = new Audio(track.previewUrl);
-      a.play().catch(() => {}); a.onended = () => setPreviewId(null);
+      a.loop = true;
+      a.play().catch(() => {});
       audioRef.current = a; setPreviewId(track.trackId);
     }
   }
 
-  function goToTrim(track: MusicTrack) {
+  function selectTrack(track: MusicTrack) {
     audioRef.current?.pause(); setPreviewId(null);
-    setPendingTrack(track); setStep("trim");
-  }
-
-  function confirmTrim(startSec: number) {
-    if (!pendingTrack) return;
-    onSelect({ track: pendingTrack, startSec });
+    onSelect({ track, startSec: 0 });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] flex flex-col max-h-[92dvh] p-0 overflow-hidden">
+      <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)] flex flex-col max-h-[92dvh] p-0 overflow-hidden">
 
-        {/* ── Step 1: search ── */}
-        {step === "search" && (
-          <>
-            <div className="px-5 pt-5 pb-3 shrink-0">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 mb-3">
-                  <Music className="h-5 w-5 text-primary" /> Add Music
-                </DialogTitle>
-              </DialogHeader>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input value={query} onChange={e => setQuery(e.target.value)}
-                  placeholder="Search songs, artists…" className="pl-9 rounded-xl" autoFocus />
+        <div className="px-5 pt-5 pb-3 shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 mb-3">
+              <Music className="h-5 w-5 text-primary" /> Add Music
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Search songs, artists…" className="pl-9 rounded-xl" autoFocus />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
+          {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+          {!searching && query && results.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>
+          )}
+          {!searching && !query && (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <div className="h-12 w-12 rounded-2xl grid place-items-center"
+                style={{ background: "oklch(0.65 0.22 280 / 0.10)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                <Music className="h-5 w-5 text-primary" />
               </div>
+              <p className="text-sm text-muted-foreground">Search for a song to add</p>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
-              {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-              {!searching && query && results.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>
-              )}
-              {!searching && !query && (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                    style={{ background: "oklch(0.65 0.22 280 / 0.10)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
-                    <Music className="h-5 w-5 text-primary" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Search for a song to add</p>
+          )}
+          {results.map((track) => {
+            const isPlaying = previewId === track.trackId;
+            return (
+              <div key={track.trackId}
+                className="flex items-center gap-3 px-2 py-2 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
+                onClick={() => selectTrack(track)}>
+                <div className="relative shrink-0">
+                  <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-lg object-cover" />
+                  {isPlaying && (
+                    <div className="absolute inset-0 rounded-lg bg-black/40 flex items-center justify-center">
+                      <div className="h-3 w-3 rounded-full bg-white animate-spin" style={{ animationDuration: "1.2s" }} />
+                    </div>
+                  )}
                 </div>
-              )}
-              {results.map((track) => {
-                const isPlaying = previewId === track.trackId;
-                return (
-                  <div key={track.trackId}
-                    className="flex items-center gap-3 px-2 py-2 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
-                    onClick={() => goToTrim(track)}>
-                    <div className="relative shrink-0">
-                      <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-lg object-cover" />
-                      {isPlaying && (
-                        <div className="absolute inset-0 rounded-lg bg-black/40 flex items-center justify-center">
-                          <div className="h-3 w-3 rounded-full bg-white animate-spin" style={{ animationDuration: "1.2s" }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{track.trackName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
-                    </div>
-                    <button type="button"
-                      onClick={(e) => { e.stopPropagation(); togglePreview(track); }}
-                      className={cn("h-8 w-8 rounded-full shrink-0 grid place-items-center transition-all",
-                        isPlaying ? "bg-primary text-white" : "border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                      )}>
-                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {/* ── Step 2: trim segment ── */}
-        {step === "trim" && pendingTrack && (
-          <MusicTrimStep
-            track={pendingTrack}
-            onBack={() => { setStep("search"); setPendingTrack(null); }}
-            onConfirm={confirmTrim}
-          />
-        )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{track.trackName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
+                </div>
+                <button type="button"
+                  onClick={(e) => { e.stopPropagation(); togglePreview(track); }}
+                  className={cn("h-8 w-8 rounded-full shrink-0 grid place-items-center transition-all",
+                    isPlaying ? "bg-primary text-white" : "border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                  )}>
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-// ─── Music trim step ───────────────────────────────────────────
-function MusicTrimStep({ track, onBack, onConfirm }: {
-  track: MusicTrack;
-  onBack: () => void;
-  onConfirm: (startSec: number) => void;
-}) {
-  const CLIP = CLIP_DURATION;     // 15s window
-  const TOTAL = PREVIEW_DURATION; // 30s total
-  const MAX_START = TOTAL - CLIP; // 15s max start
-
-  // startSecRef is the single source of truth — avoids stale closure bugs
-  const startSecRef = useRef(0);
-  const [startSec, setStartSec] = useState(0); // mirror for rendering
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-
-  // Drag state — all in refs to avoid closure issues
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartSec = useRef(0);
-
-  // Mount audio once
-  useEffect(() => {
-    const a = new Audio(track.previewUrl);
-    a.currentTime = 0;
-    a.ontimeupdate = () => {
-      setCurrentTime(a.currentTime);
-      // Loop within clip using ref (always fresh value)
-      if (a.currentTime >= startSecRef.current + CLIP) {
-        a.currentTime = startSecRef.current;
-      }
-    };
-    a.play().catch(() => {});
-    audioRef.current = a;
-    setPlaying(true);
-    return () => { a.pause(); a.src = ""; };
-  // Only re-run if track URL changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.previewUrl]);
-
-  function seekTo(sec: number) {
-    const clamped = Math.max(0, Math.min(sec, MAX_START));
-    startSecRef.current = clamped;
-    setStartSec(clamped);
-    if (audioRef.current) audioRef.current.currentTime = clamped;
-  }
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true); }
-  }
-
-  // ── Pointer-based drag (works for both mouse and touch) ──────
-  function onPointerDown(e: React.PointerEvent) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    isDragging.current = true;
-    dragStartX.current = e.clientX;
-    dragStartSec.current = startSecRef.current;
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    if (!isDragging.current) return;
-    const trackW = trackRef.current?.getBoundingClientRect().width ?? 1;
-    const dx = e.clientX - dragStartX.current;
-    const secPerPx = TOTAL / trackW;
-    seekTo(dragStartSec.current + dx * secPerPx);
-  }
-
-  function onPointerUp(e: React.PointerEvent) {
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    isDragging.current = false;
-  }
-
-  // Also allow clicking anywhere on the track bar to jump
-  function onTrackClick(e: React.MouseEvent) {
-    if (isDragging.current) return;
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const ratio = x / rect.width;
-    // Center the window on the clicked position
-    seekTo(ratio * TOTAL - CLIP / 2);
-  }
-
-  const playheadRatio = Math.min(currentTime / TOTAL, 1);
-  const selLeft = (startSec / TOTAL) * 100;
-  const selWidth = (CLIP / TOTAL) * 100;
-
-  // Deterministic waveform heights (no Math.random so they don't re-render)
-  const bars = Array.from({ length: 52 }, (_, i) => {
-    const v = Math.sin(i * 0.6) * 0.3 + Math.sin(i * 1.3 + 1) * 0.25 + Math.sin(i * 0.3 + 2) * 0.2;
-    return 0.25 + (v + 0.75) * 0.4;
-  });
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-5 pb-4 shrink-0 border-b"
-        style={{ borderColor: "oklch(0.22 0.016 268)" }}>
-        <button onClick={onBack}
-          className="h-8 w-8 rounded-xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all shrink-0">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <img src={track.artworkUrl100} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{track.trackName}</p>
-          <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
-        </div>
-        <button onClick={togglePlay}
-          className="h-9 w-9 rounded-full shrink-0 grid place-items-center transition-all bg-primary text-white">
-          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-        </button>
-      </div>
-
-      {/* Trim UI */}
-      <div className="flex-1 flex flex-col justify-center px-4 py-4 gap-4 music-trim-body overflow-y-auto">
-        <div className="text-center">
-          <p className="text-sm font-semibold">Select a {CLIP}s clip</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Drag the highlighted window · or tap anywhere to jump
-          </p>
-        </div>
-
-        {/* Waveform track */}
-        <div
-          ref={trackRef}
-          className="relative select-none touch-none"
-          style={{ userSelect: "none" }}
-          onClick={onTrackClick}
-        >
-          {/* Waveform bars */}
-          <div className="flex items-center gap-[2px] h-16 rounded-xl overflow-hidden px-0.5">
-            {bars.map((h, i) => {
-              const barRatio = i / bars.length;
-              const inSel = barRatio * 100 >= selLeft && barRatio * 100 < selLeft + selWidth;
-              return (
-                <div key={i}
-                  className="flex-1 rounded-sm transition-colors duration-75"
-                  style={{
-                    height: `${h * 100}%`,
-                    background: inSel ? "oklch(0.65 0.22 280)" : "oklch(0.30 0.018 268)",
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          {/* Draggable selection window */}
-          <div
-            className="absolute top-0 bottom-0 rounded-xl touch-none"
-            style={{
-              left: `${selLeft}%`,
-              width: `${selWidth}%`,
-              background: "oklch(0.65 0.22 280 / 0.18)",
-              border: "2px solid oklch(0.65 0.22 280)",
-              cursor: isDragging.current ? "grabbing" : "grab",
-              touchAction: "none",
-            }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onClick={(e) => e.stopPropagation()} // don't trigger track click
-          >
-            {/* Left handle */}
-            <div className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center">
-              <div className="h-8 w-[3px] rounded-full bg-primary" />
-            </div>
-            {/* Right handle */}
-            <div className="absolute right-0 top-0 bottom-0 w-5 flex items-center justify-center">
-              <div className="h-8 w-[3px] rounded-full bg-primary" />
-            </div>
-          </div>
-
-          {/* Playhead */}
-          <div
-            className="absolute top-0 bottom-0 w-[2px] rounded-full pointer-events-none"
-            style={{
-              left: `${playheadRatio * 100}%`,
-              background: "white",
-              opacity: 0.85,
-              transition: "left 0.08s linear",
-            }}
-          />
-        </div>
-
-        {/* Time display */}
-        <div className="flex items-center justify-between text-[11px] -mt-2 px-0.5">
-          <span className="text-muted-foreground">0:00</span>
-          <span className="text-primary font-semibold tabular-nums">
-            {formatSec(startSec)} – {formatSec(Math.min(startSec + CLIP, TOTAL))}
-          </span>
-          <span className="text-muted-foreground">{formatSec(TOTAL)}</span>
-        </div>
-
-        {/* Confirm */}
-        <Button
-          onClick={() => onConfirm(startSec)}
-          className="w-full h-11 rounded-xl font-semibold text-white"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          Use this clip
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Skeletons ────────────────────────────────────────────────
 function PostSkeleton() {
   return (

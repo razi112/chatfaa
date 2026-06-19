@@ -632,7 +632,7 @@ function ProfileSettingsDialog({ open, onOpenChange, profile, userId, onSignOut 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-lg p-0 overflow-hidden gap-0">
+      <DialogContent className="rounded-2xl w-[calc(100vw-1rem)] max-w-lg p-0 overflow-hidden gap-0">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
@@ -643,7 +643,7 @@ function ProfileSettingsDialog({ open, onOpenChange, profile, userId, onSignOut 
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="w-full rounded-none border-b px-4 h-11 bg-transparent justify-start gap-0"
+          <TabsList className="w-full rounded-none border-b px-2 sm:px-4 h-11 bg-transparent justify-start gap-0 overflow-x-auto scrollbar-hide"
             style={{ borderColor: "oklch(0.24 0.016 268)" }}>
             {[
               { value: "profile", label: "Profile" },
@@ -652,7 +652,7 @@ function ProfileSettingsDialog({ open, onOpenChange, profile, userId, onSignOut 
               { value: "danger",   label: "Danger" },
             ].map((t) => (
               <TabsTrigger key={t.value} value={t.value}
-                className={cn("rounded-none border-b-2 border-transparent px-4 py-2 text-xs font-medium data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground",
+                className={cn("rounded-none border-b-2 border-transparent px-3 sm:px-4 py-2 text-xs font-medium data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground shrink-0",
                   t.value === "danger" && "data-[state=active]:text-destructive data-[state=active]:border-destructive"
                 )}>
                 {t.label}
@@ -1141,7 +1141,7 @@ function CreateGroupDialog({ friends, meId, onCreated }: { friends: Profile[]; m
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-md">
+      <DialogContent className="rounded-2xl w-[calc(100vw-1rem)] max-w-md">
         <DialogHeader><DialogTitle>New group</DialogTitle><DialogDescription>Create a group and add friends.</DialogDescription></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5"><Label>Name</Label><Input maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekend plans" className="rounded-xl" /></div>
@@ -1326,7 +1326,7 @@ function StickerPicker({ onPick, onClose }: { onPick: (s: string) => void; onClo
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
   return (
-    <div ref={ref} className="absolute bottom-full left-0 mb-2 z-50 rounded-2xl overflow-hidden shadow-[0_8px_40px_-8px_oklch(0_0_0/0.7)] w-[min(320px,90vw)]"
+    <div ref={ref} className="absolute bottom-full left-0 mb-2 z-50 rounded-2xl overflow-hidden shadow-[0_8px_40px_-8px_oklch(0_0_0/0.7)] w-[min(320px,calc(100vw-1.5rem))]"
       style={{ background: "oklch(0.16 0.016 268)", border: "1px solid oklch(0.26 0.018 268)" }}>
       <div className="flex border-b overflow-x-auto" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
         {STICKER_CATEGORIES.map((c, i) => (
@@ -1357,7 +1357,7 @@ function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, c
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-sm">
+      <DialogContent className="rounded-2xl w-[calc(100vw-1rem)] max-w-sm">
         <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
@@ -2030,7 +2030,7 @@ function GroupInfoDialog({ open, onOpenChange, group, meId, isAdmin, memberProfi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-md">
+      <DialogContent className="rounded-2xl w-[calc(100vw-1rem)] max-w-md">
         <DialogHeader>
           {editingName ? (
             <div className="flex items-center gap-2">

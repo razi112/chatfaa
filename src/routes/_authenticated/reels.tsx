@@ -605,7 +605,7 @@ function CommentsSheet({ open, onClose, reel, meId }: {
         <div className="flex justify-center pt-3 pb-2">
           <div className="h-1 w-10 rounded-full bg-white/20" />
         </div>
-        <div className="flex items-center justify-between px-5 pb-3 border-b" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+        <div className="flex items-center justify-between px-4 sm:px-5 pb-3 border-b" style={{ borderColor: "oklch(0.24 0.016 268)" }}>
           <h3 className="font-semibold text-white text-sm">Comments</h3>
           <button onClick={onClose}><X className="h-5 w-5 text-white/50" /></button>
         </div>
@@ -725,7 +725,7 @@ function UploadReelDialog({ open, onOpenChange, userId }: {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!uploading) { onOpenChange(v); if (!v) reset(); } }}>
-      <DialogContent className="rounded-2xl w-[calc(100vw-2rem)] max-w-md">
+      <DialogContent className="rounded-2xl w-[calc(100vw-1rem)] max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Play className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />

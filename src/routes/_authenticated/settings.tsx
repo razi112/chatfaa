@@ -175,7 +175,7 @@ function SettingsPage() {
       <div className="flex flex-1 max-w-4xl mx-auto w-full">
         {/* Sidebar */}
         {showSidebar && (
-          <aside className="w-full md:w-64 md:border-r shrink-0 py-4" style={{ borderColor: "oklch(0.18 0.016 268)" }}>
+          <aside className="w-full md:w-64 md:border-r shrink-0 py-4 pb-bottom-nav md:pb-4 overflow-y-auto" style={{ borderColor: "oklch(0.18 0.016 268)" }}>
             {/* Profile mini card */}
             {profile && (
               <div className="flex items-center gap-3 px-4 mb-5 pb-4 border-b" style={{ borderColor: "oklch(0.18 0.016 268)" }}>
@@ -223,7 +223,7 @@ function SettingsPage() {
 
         {/* Content panel */}
         {showContent && (
-          <main className="flex-1 min-w-0 p-4 md:p-6">
+          <main className="flex-1 min-w-0 p-3 sm:p-4 md:p-6 overflow-x-hidden pb-bottom-nav md:pb-6">
             {!activeSection ? (
               <div className="hidden md:flex flex-col items-center justify-center h-full text-center py-20">
                 <div className="h-16 w-16 rounded-2xl grid place-items-center mb-4"
@@ -474,7 +474,7 @@ function ProfileSection({ profile, userId, onSaved }: { profile: Profile; userId
         {/* Account type */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">Account Type</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-w-0">
             {(["personal", "creator", "business"] as const).map(type => (
               <button
                 key={type}
@@ -757,7 +757,7 @@ function PrivacySection({ profile, userId, onSaved }: { profile: Profile; userId
       <SettingsGroup title="Interactions">
         <SettingsRow label="Story Privacy" sublabel={`Currently: ${profile.story_privacy}`}>
           <Select value={profile.story_privacy} onValueChange={v => updatePrivacyField("story_privacy", v)}>
-            <SelectTrigger className="w-36 h-8 rounded-lg text-xs">
+            <SelectTrigger className="w-28 sm:w-36 h-8 rounded-lg text-xs shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -771,7 +771,7 @@ function PrivacySection({ profile, userId, onSaved }: { profile: Profile; userId
 
         <SettingsRow label="Reel Privacy" sublabel={`Currently: ${profile.reel_privacy}`}>
           <Select value={profile.reel_privacy} onValueChange={v => updatePrivacyField("reel_privacy", v)}>
-            <SelectTrigger className="w-36 h-8 rounded-lg text-xs">
+            <SelectTrigger className="w-28 sm:w-36 h-8 rounded-lg text-xs shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -784,7 +784,7 @@ function PrivacySection({ profile, userId, onSaved }: { profile: Profile; userId
 
         <SettingsRow label="Tags & Mentions" sublabel={`Who can tag you: ${profile.tag_permissions}`}>
           <Select value={profile.tag_permissions} onValueChange={v => updatePrivacyField("tag_permissions", v)}>
-            <SelectTrigger className="w-36 h-8 rounded-lg text-xs">
+            <SelectTrigger className="w-28 sm:w-36 h-8 rounded-lg text-xs shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1117,7 +1117,7 @@ function AppearanceSection({ profile, userId, onSaved }: { profile: Profile; use
               </div>
             </div>
             <Select value={prefs.language} onValueChange={v => handlePrefChange("language", v)}>
-              <SelectTrigger className="w-32 h-8 rounded-lg text-xs">
+              <SelectTrigger className="w-28 sm:w-32 h-8 rounded-lg text-xs shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

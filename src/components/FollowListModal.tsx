@@ -54,16 +54,16 @@ export function FollowListModal({
 
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-3 border-b shrink-0"
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b shrink-0"
           style={{ borderColor: "oklch(0.22 0.016 268)" }}
         >
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {(["followers", "following", ...(isOwnProfile ? ["requests"] : [])] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all capitalize relative",
+                  "px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all capitalize relative whitespace-nowrap shrink-0",
                   tab === t
                     ? "text-white"
                     : "text-muted-foreground hover:text-foreground"
@@ -82,7 +82,7 @@ export function FollowListModal({
               </button>
             ))}
           </div>
-          <button onClick={onClose}>
+          <button onClick={onClose} className="shrink-0 ml-2">
             <X className="h-5 w-5 text-muted-foreground hover:text-foreground" />
           </button>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Music, Search, X, Play, Pause, Smile, Users, Star,
-  Pencil, Trash2, Loader2, ChevronLeft, Send,
+  Pencil, Trash2, Loader2, Send,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -47,7 +47,6 @@ type SelectedMusic = {
 };
 
 function initials(n: string) { return (n ?? "?").slice(0, 2).toUpperCase(); }
-const CLIP = 15;
 const PREVIEW_TOTAL = 30;
 
 function timeLeft(exp: string) {
@@ -265,11 +264,9 @@ function NoteViewer({ note, profile, meId, onClose, onReply }: {
   useEffect(() => {
     if (!note.music_preview_url) return;
     const a = new Audio(note.music_preview_url);
-    a.currentTime = note.music_start_sec ?? 0;
+    a.currentTime = 0;
     a.muted = true;
-    a.ontimeupdate = () => {
-      if (a.currentTime >= (note.music_start_sec ?? 0) + CLIP) a.currentTime = note.music_start_sec ?? 0;
-    };
+    a.loop = true;
     a.onended = () => setPlaying(false);
     audioRef.current = a;
     return () => { a.pause(); a.src = ""; };
@@ -335,7 +332,7 @@ function NoteViewer({ note, profile, meId, onClose, onReply }: {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate">{note.music_title}</p>
               <p className="text-[11px] text-muted-foreground truncate">{note.music_artist}</p>
-              <p className="text-[10px] text-muted-foreground/60">{CLIP}s preview</p>
+              <p className="text-[10px] text-muted-foreground/60">30s preview</p>
             </div>
             <button onClick={togglePlay}
               className="h-9 w-9 rounded-full grid place-items-center shrink-0 transition-all"
@@ -618,17 +615,15 @@ function NoteComposer({ meId, existingNote, onClose, onSaved }: {
   );
 }
 
-// ─── Notes Music Picker (search + 15s trim) ───────────────────
+// ─── Notes Music Picker (search + full preview) ───────────────
 function NotesMusicPicker({ open, onOpenChange, onSelect }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSelect: (m: SelectedMusic) => void;
 }) {
-  const [step, setStep] = useState<"search" | "trim">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MusicTrack[]>([]);
   const [searching, setSearching] = useState(false);
-  const [pendingTrack, setPendingTrack] = useState<MusicTrack | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -636,7 +631,7 @@ function NotesMusicPicker({ open, onOpenChange, onSelect }: {
   const TRENDING_QUERIES = ["Taylor Swift","Ed Sheeran","The Weeknd","Sabrina Carpenter","Drake"];
 
   useEffect(() => {
-    if (!open) { audioRef.current?.pause(); setPreviewId(null); setQuery(""); setResults([]); setStep("search"); setPendingTrack(null); }
+    if (!open) { audioRef.current?.pause(); setPreviewId(null); setQuery(""); setResults([]); }
   }, [open]);
 
   useEffect(() => {
@@ -658,13 +653,14 @@ function NotesMusicPicker({ open, onOpenChange, onSelect }: {
     if (previewId === track.trackId) { audioRef.current?.pause(); setPreviewId(null); return; }
     audioRef.current?.pause();
     const a = new Audio(track.previewUrl);
-    a.play().catch(() => {}); a.onended = () => setPreviewId(null);
+    a.loop = true;
+    a.play().catch(() => {});
     audioRef.current = a; setPreviewId(track.trackId);
   }
 
-  function goTrim(track: MusicTrack) {
+  function selectTrack(track: MusicTrack) {
     audioRef.current?.pause(); setPreviewId(null);
-    setPendingTrack(track); setStep("trim");
+    onSelect({ track, startSec: 0 });
   }
 
   if (!open) return null;
@@ -680,186 +676,59 @@ function NotesMusicPicker({ open, onOpenChange, onSelect }: {
           <div className="h-1 w-10 rounded-full" style={{ background: "var(--border)" }} />
         </div>
 
-        {step === "search" ? (
-          <>
-            <div className="px-5 pt-2 pb-3 shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Add music</h3>
-                <button onClick={() => onOpenChange(false)}><X className="h-5 w-5 text-muted-foreground" /></button>
-              </div>
-              <div className="flex items-center gap-2 rounded-2xl px-3" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
-                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-                <input value={query} onChange={e => setQuery(e.target.value)}
-                  placeholder="Search songs, artists…"
-                  className="flex-1 py-2.5 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  autoFocus />
+        <div className="px-5 pt-2 pb-3 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">Add music</h3>
+            <button onClick={() => onOpenChange(false)}><X className="h-5 w-5 text-muted-foreground" /></button>
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl px-3" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Search songs, artists…"
+              className="flex-1 py-2.5 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              autoFocus />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 pb-4 min-h-0">
+          {!query && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-muted-foreground px-2 mb-2">TRENDING</p>
+              <div className="flex flex-wrap gap-2 px-2">
+                {TRENDING_QUERIES.map(q => (
+                  <button key={q} onClick={() => setQuery(q)}
+                    className="px-3 py-1.5 rounded-2xl text-xs font-medium border transition-all hover:border-primary/50"
+                    style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
+                    {q}
+                  </button>
+                ))}
               </div>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-3 pb-4 min-h-0">
-              {!query && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-muted-foreground px-2 mb-2">TRENDING</p>
-                  <div className="flex flex-wrap gap-2 px-2">
-                    {TRENDING_QUERIES.map(q => (
-                      <button key={q} onClick={() => setQuery(q)}
-                        className="px-3 py-1.5 rounded-2xl text-xs font-medium border transition-all hover:border-primary/50"
-                        style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
-                        {q}
-                      </button>
-                    ))}
-                  </div>
+          )}
+          {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+          {!searching && query && results.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>}
+          {results.map(track => {
+            const isPlaying = previewId === track.trackId;
+            return (
+              <div key={track.trackId}
+                className="flex items-center gap-3 px-2 py-2 rounded-2xl transition-all hover:bg-accent cursor-pointer"
+                onClick={() => selectTrack(track)}>
+                <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-xl object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{track.trackName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
                 </div>
-              )}
-              {searching && <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-              {!searching && query && results.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No songs found</p>}
-              {results.map(track => {
-                const isPlaying = previewId === track.trackId;
-                return (
-                  <div key={track.trackId}
-                    className="flex items-center gap-3 px-2 py-2 rounded-2xl transition-all hover:bg-accent cursor-pointer"
-                    onClick={() => goTrim(track)}>
-                    <img src={track.artworkUrl100} alt="" className="h-11 w-11 rounded-xl object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{track.trackName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
-                    </div>
-                    <button onClick={e => { e.stopPropagation(); togglePreview(track); }}
-                      className={cn("h-8 w-8 rounded-full grid place-items-center shrink-0 border transition-all",
-                        isPlaying ? "text-white border-transparent" : "text-muted-foreground border-border"
-                      )}
-                      style={isPlaying ? { background: "var(--gradient-primary)" } : {}}>
-                      {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : pendingTrack ? (
-          <NotesMusicTrim
-            track={pendingTrack}
-            onBack={() => { setStep("search"); setPendingTrack(null); }}
-            onConfirm={startSec => onSelect({ track: pendingTrack, startSec })}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-// ─── Notes Music Trim step ────────────────────────────────────
-function NotesMusicTrim({ track, onBack, onConfirm }: {
-  track: MusicTrack;
-  onBack: () => void;
-  onConfirm: (startSec: number) => void;
-}) {
-  const MAX_START = PREVIEW_TOTAL - CLIP;
-  const startSecRef = useRef(0);
-  const [startSec, setStartSec] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartSec = useRef(0);
-
-  useEffect(() => {
-    const a = new Audio(track.previewUrl);
-    a.ontimeupdate = () => {
-      setCurrentTime(a.currentTime);
-      if (a.currentTime >= startSecRef.current + CLIP) a.currentTime = startSecRef.current;
-    };
-    a.play().catch(() => {}); audioRef.current = a; setPlaying(true);
-    return () => { a.pause(); a.src = ""; };
-  }, [track.previewUrl]);
-
-  function seekTo(sec: number) {
-    const c = Math.max(0, Math.min(sec, MAX_START));
-    startSecRef.current = c; setStartSec(c);
-    if (audioRef.current) audioRef.current.currentTime = c;
-  }
-
-  function togglePlay() {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true); }
-  }
-
-  function onPointerDown(e: React.PointerEvent) {
-    e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
-    isDragging.current = true; dragStartX.current = e.clientX; dragStartSec.current = startSecRef.current;
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!isDragging.current) return;
-    const w = trackRef.current?.getBoundingClientRect().width ?? 1;
-    seekTo(dragStartSec.current + (e.clientX - dragStartX.current) * (PREVIEW_TOTAL / w));
-  }
-  function onPointerUp(e: React.PointerEvent) { e.currentTarget.releasePointerCapture(e.pointerId); isDragging.current = false; }
-  function onTrackClick(e: React.MouseEvent) {
-    if (isDragging.current) return;
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    seekTo((e.clientX - rect.left) / rect.width * PREVIEW_TOTAL - CLIP / 2);
-  }
-
-  const bars = Array.from({ length: 40 }, (_, i) => 0.25 + (Math.sin(i * 0.6) * 0.3 + Math.sin(i * 1.3 + 1) * 0.25 + 0.75) * 0.4);
-  const selLeft = (startSec / PREVIEW_TOTAL) * 100;
-  const selWidth = (CLIP / PREVIEW_TOTAL) * 100;
-  const playheadRatio = Math.min(currentTime / PREVIEW_TOTAL, 1);
-
-  function fmt(s: number) { const m = Math.floor(s / 60); return `${m}:${Math.floor(s % 60).toString().padStart(2, "0")}`; }
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-3 pb-4 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-        <button onClick={onBack} className="h-8 w-8 rounded-xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all shrink-0">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <img src={track.artworkUrl100} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{track.trackName}</p>
-          <p className="text-xs text-muted-foreground truncate">{track.artistName}</p>
+                <button onClick={e => { e.stopPropagation(); togglePreview(track); }}
+                  className={cn("h-8 w-8 rounded-full grid place-items-center shrink-0 border transition-all",
+                    isPlaying ? "text-white border-transparent" : "text-muted-foreground border-border"
+                  )}
+                  style={isPlaying ? { background: "var(--gradient-primary)" } : {}}>
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+                </button>
+              </div>
+            );
+          })}
         </div>
-        <button onClick={togglePlay} className="h-9 w-9 rounded-full shrink-0 grid place-items-center text-white"
-          style={{ background: "var(--gradient-primary)" }}>
-          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-        </button>
-      </div>
-
-      {/* Waveform trim */}
-      <div className="flex-1 flex flex-col justify-center px-5 py-5 gap-4">
-        <div className="text-center">
-          <p className="text-sm font-semibold">Select a {CLIP}s clip</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Drag to choose your snippet</p>
-        </div>
-        <div ref={trackRef} className="relative select-none touch-none" onClick={onTrackClick}>
-          <div className="flex items-center gap-[2px] h-14 rounded-2xl overflow-hidden px-0.5">
-            {bars.map((h, i) => {
-              const inSel = (i / bars.length) * 100 >= selLeft && (i / bars.length) * 100 < selLeft + selWidth;
-              return <div key={i} className="flex-1 rounded-sm" style={{ height: `${h * 100}%`, background: inSel ? "var(--primary)" : "var(--border)" }} />;
-            })}
-          </div>
-          <div className="absolute top-0 bottom-0 rounded-2xl touch-none"
-            style={{ left: `${selLeft}%`, width: `${selWidth}%`, background: "rgba(225,48,108,0.15)", border: "2px solid var(--primary)", cursor: isDragging.current ? "grabbing" : "grab", touchAction: "none" }}
-            onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-            onClick={e => e.stopPropagation()}>
-            <div className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center"><div className="h-7 w-[3px] rounded-full bg-primary" /></div>
-            <div className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center"><div className="h-7 w-[3px] rounded-full bg-primary" /></div>
-          </div>
-          <div className="absolute top-0 bottom-0 w-[2px] rounded-full pointer-events-none bg-white/70"
-            style={{ left: `${playheadRatio * 100}%`, transition: "left 0.08s linear" }} />
-        </div>
-        <div className="flex justify-between text-[11px] -mt-1 px-0.5">
-          <span className="text-muted-foreground">0:00</span>
-          <span className="font-semibold" style={{ color: "var(--primary)" }}>{fmt(startSec)} – {fmt(Math.min(startSec + CLIP, PREVIEW_TOTAL))}</span>
-          <span className="text-muted-foreground">{fmt(PREVIEW_TOTAL)}</span>
-        </div>
-        <Button onClick={() => onConfirm(startSec)} className="w-full h-11 rounded-2xl font-semibold text-white" style={{ background: "var(--gradient-primary)" }}>
-          Use this clip
-        </Button>
       </div>
     </div>
   );

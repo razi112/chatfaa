@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Camera, Grid3X3, Play, Heart, Plus, X, Loader2,
   Upload, ImagePlus, Trash2, MessageCircle, Video, Home,
-  Lock, Unlock, Users, UserPlus, MoreHorizontal, Flag, Shield,
+  Lock, Unlock, Users, UserPlus, MoreHorizontal, Flag, Shield, BookmarkPlus,
 } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import {
 } from "@/hooks/use-follow";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal } from "@/components/FollowListModal";
+import { ProfileHighlights } from "@/components/ProfileHighlights";
 import { BottomNav } from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -192,19 +193,19 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Top nav bar ── */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b safe-top"
+      <header className="sticky top-0 z-30 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 h-14 border-b safe-top"
         style={{ background: "oklch(0.13 0.015 268 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
         <Link to="/feed">
           <button className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </button>
         </Link>
-        <span className="font-semibold text-sm flex items-center gap-1.5">
+        <span className="font-semibold text-sm flex items-center gap-1.5 truncate">
           {profile ? `@${profile.username}` : "Profile"}
           {profile?.is_verified && <VerifiedBadge size={13} />}
-          {profile?.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+          {profile?.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
         </span>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1 shrink-0">
           <Link to="/feed">
             <button className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all" title="Feed">
               <Home className="h-[17px] w-[17px]" />
@@ -247,6 +248,17 @@ function ProfilePage() {
             <p className="text-center text-muted-foreground py-12">User not found.</p>
           )}
         </div>
+
+        {/* ── Highlights row ── */}
+        {profile && (
+          <div className="mb-5">
+            <ProfileHighlights
+              userId={targetId}
+              meId={user.id}
+              isOwnProfile={isOwnProfile}
+            />
+          </div>
+        )}
 
         {/* ── Upload post button (own profile) ── */}
         {isOwnProfile && (
@@ -453,7 +465,7 @@ function ProfileHeader({
   return (
     <div>
       {/* Avatar row */}
-      <div className="flex items-start gap-4 sm:gap-5 mb-5">
+      <div className="flex items-start gap-3 sm:gap-5 mb-5">
         <div className="relative shrink-0">
           <Avatar className="h-16 w-16 sm:h-20 sm:w-20 ring-2 ring-white/10">
             <AvatarImage src={profile.avatar_url ?? undefined} />
@@ -474,7 +486,7 @@ function ProfileHeader({
         </div>
 
         {/* Stats */}
-        <div className="flex gap-3 sm:gap-4 pt-2 flex-wrap min-w-0">
+        <div className="flex gap-3 sm:gap-5 pt-2 flex-wrap min-w-0 flex-1">
           <StatBtn label="Posts" value={postCount} onClick={() => {}} />
           <StatBtn label="Followers" value={counts.followers} onClick={onOpenFollowers} badge={pendingCount > 0 ? pendingCount : undefined} />
           <StatBtn label="Following" value={counts.following} onClick={onOpenFollowing} />
@@ -513,16 +525,16 @@ function ProfileHeader({
 
       {/* Action buttons */}
       {isOwnProfile ? (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setEditOpen(true)}
-            className="flex-1 h-9 rounded-xl text-sm font-medium border transition-all hover:bg-white/5"
+            className="flex-1 min-w-[120px] h-9 rounded-xl text-sm font-medium border transition-all hover:bg-white/5"
             style={{ borderColor: "oklch(0.30 0.018 268)", color: "oklch(0.80 0.010 268)" }}
           >
             Edit profile
           </button>
           <Link to="/settings">
-            <Button variant="outline" className="h-9 px-3 rounded-xl"
+            <Button variant="outline" className="h-9 px-3 rounded-xl shrink-0"
               style={{ borderColor: "oklch(0.30 0.018 268)" }}
               title="Settings">
               <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2">
@@ -536,7 +548,7 @@ function ProfileHeader({
         <div className="flex gap-2">
           <FollowButton targetId={profile.id} meId={meId} className="flex-1" />
           <Link to="/chat" search={{ userId: profile.id } as any}>
-            <Button variant="outline" className="h-9 px-4 rounded-xl text-sm font-medium"
+            <Button variant="outline" className="h-9 px-3 sm:px-4 rounded-xl text-sm font-medium shrink-0"
               style={{ borderColor: "oklch(0.30 0.018 268)" }}>
               <MessageCircle className="h-4 w-4" />
             </Button>
