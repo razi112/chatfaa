@@ -387,3 +387,113 @@
     bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   240Hz — GPU-accelerated smooth rendering
+   All animations/transitions use ONLY transform + opacity
+   so they run on the compositor thread (never triggers layout)
+   ════════════════════════════════════════════════════════════ */
+
+/* Promote interactive layers to their own GPU composite layer */
+button, a, [role="button"] {
+  will-change: transform;
+}
+
+/* All transitions: use transform/opacity only, ultra-short durations */
+* {
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Instant tap feedback — no perceptible delay */
+button:active, a:active, [role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 60ms cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+/* Avatar + nav pill items: hardware-accelerated hover/active */
+.bottom-nav-pill button:active,
+.bottom-nav-pill a:active {
+  transform: scale(0.93);
+  transition: transform 50ms ease-out !important;
+}
+
+/* Images: prevent layout shift, force compositing */
+img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Scroll containers: momentum scroll + GPU compositing */
+.overflow-y-auto,
+.overflow-y-scroll,
+[data-radix-scroll-area-viewport] {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+  transform: translateZ(0);
+}
+
+/* Sheets / dialogs / modals: GPU layer for slide animations */
+[data-radix-dialog-content],
+[data-radix-sheet-content],
+[data-radix-dropdown-menu-content],
+[data-radix-popover-content] {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Feed / chat list items: reduce paint on scroll */
+.feed-card,
+.chat-row,
+.people-row {
+  contain: layout style;
+  transform: translateZ(0);
+}
+
+/* Fixed/sticky elements: keep on GPU layer permanently */
+.bottom-nav,
+[class*="fixed bottom"],
+[class*="sticky top"],
+header {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Avatar ring animations: compositor-only */
+.ring-primary,
+.ring-2,
+.ring-4 {
+  will-change: opacity;
+}
+
+/* Skeleton shimmer: GPU-only animation */
+.shimmer {
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+/* Heart burst: GPU-only */
+.animate-heart-burst {
+  will-change: transform, opacity;
+}
+
+/* Orb floats: GPU-only */
+.orb, .orb-delay {
+  will-change: transform, opacity;
+}
+
+/* Marquee: GPU-only */
+.animate-marquee {
+  will-change: transform;
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
