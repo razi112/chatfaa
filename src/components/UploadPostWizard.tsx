@@ -268,7 +268,7 @@ export function UploadPostWizard({ open, onOpenChange, userId, onUploaded }: Upl
         music_artist: selectedMusic?.track.artistName ?? null,
         music_artwork_url: selectedMusic?.track.artworkUrl100 ?? null,
         music_preview_url: selectedMusic?.track.previewUrl ?? null,
-        music_start_sec: selectedMusic?.startSec ?? null,
+        music_start_sec: selectedMusic?.startSec ?? 0,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Post shared!");

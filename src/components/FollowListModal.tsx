@@ -5,6 +5,7 @@ import {
   type FollowUser,
 } from "@/hooks/use-follow";
 import { FollowButton } from "@/components/FollowButton";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -256,6 +257,7 @@ function UserListRow({
           <span className="text-sm font-semibold leading-tight truncate">
             {user.display_name || user.username}
           </span>
+          {user.is_verified && <VerifiedBadge size={13} tooltip={false} />}
           {user.is_mutual && (
             <span
               className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"

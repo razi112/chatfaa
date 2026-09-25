@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { NotificationBell } from "@/components/NotificationBell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { UploadPostWizard } from "@/components/UploadPostWizard";
+import { CreateHub } from "@/components/CreateHub";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +102,7 @@ function FeedPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createHubOpen, setCreateHubOpen] = useState(false);
 
   const postsQ = useQuery({
     queryKey: ["feed-posts"],
@@ -170,18 +172,33 @@ function FeedPage() {
   const likes = likesQ.data ?? [];
 
   return (
-    <div className="min-h-[100dvh] w-full flex bg-background text-foreground">
+    <div className="min-h-[100dvh] w-full flex bg-background text-foreground mesh-bg">
 
       {/* ── Left nav rail (desktop) ── */}
-      <aside className="hidden md:flex w-[60px] xl:w-[220px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top overflow-hidden"
-        style={{ background: "var(--color-sidebar)", borderColor: "oklch(0.18 0.016 268)" }}>
+      <aside
+        className="hidden md:flex w-[60px] xl:w-[220px] shrink-0 flex-col py-4 gap-1 border-r sticky top-0 h-[100dvh] safe-top overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(20,14,40,0.80) 0%, rgba(6,6,15,0.75) 100%)",
+          backdropFilter: "blur(32px) saturate(180%)",
+          WebkitBackdropFilter: "blur(32px) saturate(180%)",
+          borderColor: "rgba(168,85,247,0.18)",
+        }}
+      >
         {/* Logo */}
         <div className="flex items-center gap-3 px-3 mb-4">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl shadow-[0_4px_16px_-4px_oklch(0.65_0.22_280/0.5)]"
-            style={{ background: "var(--gradient-primary)" }}>
+          <div
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow-sm)" }}
+          >
             <Home className="h-4 w-4 text-white" />
           </div>
-          <span className="hidden xl:block font-bold text-sm tracking-tight">chatfaa</span>
+          <span
+            className="hidden xl:block font-bold text-sm tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
+            chatfaa
+          </span>
         </div>
 
         <NavItem to="/feed" icon={Home} label="Feed" active />
@@ -191,43 +208,77 @@ function FeedPage() {
         <NavItem to="/profile" icon={AvatarIcon} label="Profile" />
         <NavItem to="/settings" icon={Settings} label="Settings" />
 
-        {/* Upload button + notification bell */}
+        {/* Create button + notification bell */}
         <div className="mt-auto px-2 pb-2 space-y-1">
           <div className="flex items-center gap-2 px-3 py-2">
             <NotificationBell meId={user.id} />
             <span className="hidden xl:block text-xs text-muted-foreground">Notifications</span>
           </div>
+
+          {/* Desktop → opens CreateHub; hidden on mobile (mobile uses header button) */}
           <button
-            onClick={() => setUploadOpen(true)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
-            aria-label="New post"
+            onClick={() => setCreateHubOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-white"
+            style={{
+              background: "var(--gradient-primary)",
+              boxShadow: "var(--shadow-glow-sm)",
+            }}
+            aria-label="Create"
           >
-            <div className="h-9 w-9 shrink-0 rounded-xl grid place-items-center border-2 border-dashed"
-              style={{ borderColor: "oklch(0.35 0.018 268)" }}>
+            <div className="h-9 w-9 shrink-0 rounded-xl grid place-items-center">
               <Plus className="h-4 w-4" />
             </div>
-            <span className="hidden xl:block">New post</span>
+            <span className="hidden xl:block">Create</span>
           </button>
         </div>
       </aside>
 
       {/* ── Feed column ── */}
-      <main className="flex-1 min-w-0 flex flex-col items-center overflow-x-hidden"
-        style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}>
+      <main
+        className="flex-1 min-w-0 flex flex-col items-center overflow-x-hidden"
+        style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      >
         {/* Top bar (mobile) */}
-        <header className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-3 h-14 border-b safe-top"
-          style={{ background: "oklch(0.11 0.015 270 / 0.95)", borderColor: "oklch(0.20 0.016 268)", backdropFilter: "blur(16px)" }}>
-          <span className="font-bold text-base tracking-tight">chatfaa</span>
+        <header
+          className="md:hidden sticky top-0 z-30 w-full flex items-center justify-between px-3 h-14 border-b safe-top"
+          style={{
+            background: "rgba(8,6,20,0.82)",
+            backdropFilter: "blur(28px) saturate(200%)",
+            WebkitBackdropFilter: "blur(28px) saturate(200%)",
+            borderColor: "rgba(168,85,247,0.18)",
+          }}
+        >
+          <span
+            className="font-bold text-base tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
+            chatfaa
+          </span>
           <div className="flex items-center gap-0.5">
-            <Link to="/people" className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+            <Link
+              to="/people"
+              className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/6 transition-all"
+            >
               <Users className="h-5 w-5" />
             </Link>
             <NotificationBell meId={user.id} />
-            <Link to="/settings" className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all" title="Settings">
+            <Link
+              to="/settings"
+              className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/6 transition-all"
+              title="Settings"
+            >
               <Settings className="h-5 w-5" />
             </Link>
-            <button onClick={() => setUploadOpen(true)}
-              className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+            <button
+              onClick={() => setUploadOpen(true)}
+              className="h-10 w-10 grid place-items-center rounded-xl transition-all"
+              style={{
+                background: "rgba(168,85,247,0.14)",
+                border: "1px solid rgba(168,85,247,0.28)",
+                color: "#c084fc",
+              }}
+              aria-label="Create"
+            >
               <Plus className="h-5 w-5" />
             </button>
           </div>
@@ -238,7 +289,7 @@ function FeedPage() {
 
         {/* Divider */}
         <div className="w-full max-w-[470px] px-4 mb-2">
-          <div className="h-px" style={{ background: "oklch(0.22 0.016 268)" }} />
+          <div className="h-px" style={{ background: "rgba(168,85,247,0.18)" }} />
         </div>
 
         {/* Posts feed */}
@@ -247,7 +298,7 @@ function FeedPage() {
             {[...Array(3)].map((_, i) => <PostSkeleton key={i} />)}
           </div>
         ) : posts.length === 0 ? (
-          <FeedEmpty onUpload={() => setUploadOpen(true)} />
+          <FeedEmpty onUpload={() => setCreateHubOpen(true)} />
         ) : (
           <div className="w-full max-w-[470px] space-y-0">
             {posts.map((post) => (
@@ -274,6 +325,17 @@ function FeedPage() {
       />
 
       <UploadPostWizard open={uploadOpen} onOpenChange={setUploadOpen} userId={user.id} />
+
+      {/* Desktop Create Hub — full workspace modal */}
+      <CreateHub
+        open={createHubOpen}
+        onOpenChange={setCreateHubOpen}
+        userId={user.id}
+        onPublished={() => {
+          qc.invalidateQueries({ queryKey: ["feed-posts"] });
+          qc.invalidateQueries({ queryKey: ["stories"] });
+        }}
+      />
     </div>
   );
 }
@@ -376,7 +438,7 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
             <div className="relative">
               <button
                 onClick={() => hasMyStory && myGroup ? openGroup(myGroup) : setAddStoryOpen(true)}
-                className={cn(
+          className={cn(
                   "h-[62px] w-[62px] rounded-full transition-all",
                   hasMyStory
                     ? "ring-[2.5px] ring-offset-2 ring-offset-background ring-primary"
@@ -742,7 +804,7 @@ function StoryMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0
           />
         ) : (
           <div className={cn("h-8 w-8 rounded-full border-2 border-white/30 grid place-items-center", !paused && "animate-spin-slow")}
-            style={{ background: "oklch(0.65 0.22 280 / 0.6)" }}>
+            style={{ background: "rgba(168,85,247,0.6)" }}>
             <Music className="h-3.5 w-3.5 text-white" />
           </div>
         )}
@@ -757,7 +819,6 @@ function StoryMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0
         </div>
         <div className="flex items-center gap-1 mt-0.5">
           <Music className="h-2.5 w-2.5 text-white/60" />
-          <span className="text-white/60 text-[10px]">Original audio</span>
         </div>
       </div>
       {/* Mute toggle */}
@@ -858,7 +919,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
         <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+              <Camera className="h-5 w-5" style={{ color: "#c084fc" }} />
               New story
             </DialogTitle>
           </DialogHeader>
@@ -866,9 +927,9 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
 
             {/* Story rules info */}
             <div className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs"
-              style={{ background: "oklch(0.65 0.22 280 / 0.08)", border: "1px solid oklch(0.65 0.22 280 / 0.18)" }}>
+              style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.22)" }}>
               <div className="mt-0.5 shrink-0 h-4 w-4 rounded-full grid place-items-center"
-                style={{ background: "oklch(0.65 0.22 280 / 0.20)" }}>
+                style={{ background: "rgba(168,85,247,0.20)" }}>
                 <span className="text-[9px] font-bold text-primary">i</span>
               </div>
               <ul className="space-y-1 text-muted-foreground leading-relaxed">
@@ -883,10 +944,10 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
               <div
                 onClick={() => inputRef.current?.click()}
                 className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer py-10 transition-all hover:border-primary/50"
-                style={{ borderColor: "oklch(0.28 0.018 268)" }}
+                style={{ borderColor: "rgba(168,85,247,0.28)" }}
               >
                 <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                  style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
+                  style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.28)" }}>
                   <Camera className="h-5 w-5 text-primary" />
                 </div>
                 <div className="text-center">
@@ -960,7 +1021,7 @@ function AddStoryDialog({ open, onOpenChange, userId, onUploaded }: {
               ) : (
                 <>
                   <div className="h-9 w-9 rounded-xl grid place-items-center shrink-0"
-                    style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                    style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.20)" }}>
                     <Music className="h-4 w-4 text-primary" />
                   </div>
                   <span className="flex-1 text-left text-muted-foreground">Add music</span>
@@ -996,14 +1057,26 @@ function NavItem({ to, icon: Icon, label, active }: {
   to: string; icon: React.ElementType; label: string; active?: boolean;
 }) {
   return (
-    <Link to={to as any}
+    <Link
+      to={to as any}
       className={cn(
         "flex items-center gap-3 px-3 py-2.5 mx-2 rounded-xl text-sm font-medium transition-all",
         active
           ? "text-white"
-          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          : "text-muted-foreground hover:text-foreground"
       )}
-      style={active ? { background: "var(--gradient-primary)", boxShadow: "0 4px 16px -4px oklch(0.65 0.22 280/0.5)" } : {}}>
+      style={
+        active
+          ? {
+              background:
+                "linear-gradient(135deg, rgba(168,85,247,0.22) 0%, rgba(236,72,153,0.14) 100%)",
+              border: "1px solid rgba(168,85,247,0.30)",
+              boxShadow:
+                "0 0 16px -4px rgba(168,85,247,0.40), inset 0 1px 0 rgba(255,255,255,0.10)",
+            }
+          : { border: "1px solid transparent" }
+      }
+    >
       <Icon className="h-[18px] w-[18px] shrink-0" />
       <span className="hidden xl:block">{label}</span>
     </Link>
@@ -1027,6 +1100,11 @@ function snapPostRatio(w: number, h: number): string {
   return "4/5";                       // Portrait 4:5 (default for tall images)
 }
 
+function isVideoUrl(url: string | null): boolean {
+  if (!url) return false;
+  return /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(url);
+}
+
 // ─── Single post card ─────────────────────────────────────────
 function PostCard({ post, profile, likes, meId }: {
   post: Post; profile: Profile | undefined;
@@ -1036,10 +1114,30 @@ function PostCard({ post, profile, likes, meId }: {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgRatio, setImgRatio] = useState<string>("4/5"); // default portrait until loaded
+  const [videoMuted, setVideoMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Double-tap like
   const lastTapRef = useRef<number>(0);
   const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
+
+  // Auto-play video when it enters viewport
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
 
   const liked = likes.some((l) => l.user_id === meId);
   const likeCount = likes.length;
@@ -1082,7 +1180,7 @@ function PostCard({ post, profile, likes, meId }: {
   const name = profile?.display_name || profile?.username || "Unknown";
 
   return (
-    <article className="border-b" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+    <article className="border-b" style={{ borderColor: "rgba(168,85,247,0.14)" }}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-3 sm:px-4 py-3">
         <Link to="/profile" search={{ userId: post.user_id } as any}>
@@ -1110,7 +1208,7 @@ function PostCard({ post, profile, likes, meId }: {
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl" style={{ background: "oklch(0.16 0.016 268)", border: "1px solid oklch(0.24 0.018 268)" }}>
+            <DropdownMenuContent align="end" className="rounded-xl" style={{ background: "rgba(14,10,28,0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(168,85,247,0.22)" }}>
               <DropdownMenuItem onClick={deletePost}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer rounded-lg gap-2">
                 <Trash2 className="h-4 w-4" /> Delete post
@@ -1120,43 +1218,71 @@ function PostCard({ post, profile, likes, meId }: {
         )}
       </div>
 
-      {/* Image with embedded music (Instagram-style) */}
+      {/* Media: video or image */}
       {post.image_url && (
         <div
           className="relative w-full cursor-pointer select-none overflow-hidden"
           style={{
-            background: "oklch(0.14 0.015 268)",
-            aspectRatio: imgRatio,
+            background: "rgba(14,10,32,0.9)",
+            aspectRatio: isVideoUrl(post.image_url) ? "9/16" : imgRatio,
           }}
-          onClick={handleImageTap}
+          onClick={isVideoUrl(post.image_url) ? undefined : handleImageTap}
         >
-          <img
-            src={post.image_url}
-            alt={post.caption ?? "post"}
-            className="absolute inset-0 w-full h-full object-cover"
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              setImgRatio(snapPostRatio(img.naturalWidth, img.naturalHeight));
-              setImgLoaded(true);
-            }}
-            draggable={false}
-          />
-          {/* Heart burst on double tap */}
-          {heartBurst && (
-            <div key={heartBurst.id} className="absolute pointer-events-none z-20"
-              style={{ left: heartBurst.x, top: heartBurst.y, transform: "translate(-50%,-50%)" }}>
-              <Heart className="h-20 w-20 animate-heart-burst" style={{ color: "#e6337e", fill: "#e6337e" }} />
+          {isVideoUrl(post.image_url) ? (
+            /* ── Video post ── */
+            <div className="absolute inset-0">
+              <video
+                ref={videoRef}
+                src={post.image_url}
+                className="w-full h-full object-cover"
+                autoPlay
+                muted={videoMuted}
+                loop
+                playsInline
+                preload="metadata"
+              />
+              {/* Mute / unmute tap button */}
+              <button
+                onClick={() => setVideoMuted((m) => !m)}
+                className="absolute bottom-3 right-3 h-8 w-8 rounded-full grid place-items-center transition-all z-10"
+                style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)" }}
+                aria-label={videoMuted ? "Unmute" : "Mute"}
+              >
+                {videoMuted ? <MuteIcon /> : <UnmuteIcon />}
+              </button>
             </div>
-          )}
-          {/* Instagram-style music overlay — always on image */}
-          {post.music_preview_url && (
-            <PostMusicOverlay
-              title={post.music_title!}
-              artist={post.music_artist!}
-              artworkUrl={post.music_artwork_url}
-              previewUrl={post.music_preview_url}
-              startSec={post.music_start_sec ?? 0}
-            />
+          ) : (
+            /* ── Image post ── */
+            <>
+              <img
+                src={post.image_url}
+                alt={post.caption ?? "post"}
+                className="absolute inset-0 w-full h-full object-cover"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setImgRatio(snapPostRatio(img.naturalWidth, img.naturalHeight));
+                  setImgLoaded(true);
+                }}
+                draggable={false}
+              />
+              {/* Heart burst on double tap */}
+              {heartBurst && (
+                <div key={heartBurst.id} className="absolute pointer-events-none z-20"
+                  style={{ left: heartBurst.x, top: heartBurst.y, transform: "translate(-50%,-50%)" }}>
+                  <Heart className="h-20 w-20 animate-heart-burst" style={{ color: "#e6337e", fill: "#e6337e" }} />
+                </div>
+              )}
+              {/* Instagram-style music overlay */}
+              {post.music_preview_url && (
+                <PostMusicOverlay
+                  title={post.music_title!}
+                  artist={post.music_artist!}
+                  artworkUrl={post.music_artwork_url}
+                  previewUrl={post.music_preview_url}
+                  startSec={post.music_start_sec ?? 0}
+                />
+              )}
+            </>
           )}
         </div>
       )}
@@ -1263,7 +1389,7 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
   if (standalone) {
     return (
       <div className="relative mx-0 flex items-center gap-3 px-4 py-3 overflow-hidden"
-        style={{ background: "oklch(0.13 0.014 268)" }}>
+        style={{ background: "rgba(14,10,28,0.95)", borderTop: "1px solid rgba(168,85,247,0.14)" }}>
         {/* Scrolling title */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {artworkUrl && (
@@ -1281,7 +1407,7 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
         <button
           onClick={toggleMute}
           className="h-8 w-8 rounded-full grid place-items-center shrink-0 transition-all"
-          style={{ background: "oklch(0.22 0.016 268)" }}
+          style={{ background: "rgba(168,85,247,0.18)", border: "1px solid rgba(168,85,247,0.28)" }}
         >
           {muted ? <MuteIcon /> : <UnmuteIcon />}
         </button>
@@ -1289,54 +1415,63 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
     );
   }
 
-  // Overlay on image — bottom strip
+  // Overlay on image — Instagram-style floating pill (bottom-left) + mute button (bottom-right)
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2.5 px-3 py-2.5"
-      style={{
-        background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.0) 100%)",
-        backdropFilter: "blur(0px)",
-      }}>
+    <>
+      {/* Floating music pill — bottom left */}
+      <div
+        className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-full px-2 py-1.5 max-w-[60%]"
+        style={{
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
+      >
+        {/* Spinning vinyl disc */}
+        <div className="relative shrink-0 h-7 w-7">
+          {artworkUrl ? (
+            <img
+              src={artworkUrl}
+              alt=""
+              className="h-7 w-7 rounded-full object-cover border border-white/20 animate-spin-slow"
+            />
+          ) : (
+            <div
+              className="h-7 w-7 rounded-full border border-white/20 grid place-items-center animate-spin-slow"
+              style={{ background: "rgba(168,85,247,0.7)" }}
+            >
+              <Music className="h-3 w-3 text-white" />
+            </div>
+          )}
+          {/* Vinyl center hole */}
+          <div className="absolute inset-0 m-auto h-1.5 w-1.5 rounded-full bg-black/70 pointer-events-none" />
+        </div>
 
-      {/* Rotating artwork disc */}
-      <div className="relative shrink-0">
-        {artworkUrl ? (
-          <img
-            src={artworkUrl}
-            alt=""
-            className="h-8 w-8 rounded-full object-cover border-2 border-white/30 animate-spin-slow"
-          />
-        ) : (
-          <div className="h-8 w-8 rounded-full border-2 border-white/30 grid place-items-center animate-spin-slow"
-            style={{ background: "oklch(0.65 0.22 280 / 0.6)" }}>
-            <Music className="h-3.5 w-3.5 text-white" />
-          </div>
-        )}
-        {/* Center hole of vinyl */}
-        <div className="absolute inset-0 m-auto h-2 w-2 rounded-full bg-black/60 pointer-events-none" />
-      </div>
-
-      {/* Scrolling track name */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="whitespace-nowrap overflow-hidden">
-          <span className="text-white text-[11px] font-semibold inline-block animate-marquee">
+        {/* Scrolling track name */}
+        <div className="overflow-hidden max-w-[130px]">
+          <span
+            className="text-white text-[11px] font-semibold whitespace-nowrap inline-block animate-marquee"
+          >
             {title} · {artist}
           </span>
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          <Music className="h-2.5 w-2.5 text-white/60" />
-          <span className="text-white/60 text-[10px]">Original audio</span>
-        </div>
       </div>
 
-      {/* Mute / Unmute button */}
+      {/* Mute / unmute — bottom right */}
       <button
         onClick={toggleMute}
-        className="h-8 w-8 rounded-full grid place-items-center shrink-0 transition-all active:scale-90"
-        style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.2)" }}
+        className="absolute bottom-3 right-3 z-10 h-8 w-8 rounded-full grid place-items-center transition-all active:scale-90"
+        style={{
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
       >
         {muted ? <MuteIcon /> : <UnmuteIcon />}
       </button>
-    </div>
+    </>
   );
 }
 
@@ -1453,7 +1588,7 @@ function QuickComment({ postId, meId }: { postId: string; meId: string }) {
       {text.trim() && (
         <button onClick={post} disabled={posting}
           className="text-sm font-semibold transition-colors"
-          style={{ color: "oklch(0.75 0.18 280)" }}>
+          style={{ color: "#c084fc" }}>
           {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post"}
         </button>
       )}
@@ -1523,9 +1658,9 @@ function CommentsDrawer({ post, meId, onClose }: {
         className="flex flex-col rounded-t-3xl overflow-hidden w-full max-w-lg mx-auto"
         style={{
           maxHeight: "88dvh",
-          background: "oklch(0.14 0.015 268 / 0.98)",
+      background: "rgba(12,10,28,0.94)",
           backdropFilter: "blur(20px)",
-          border: "1px solid oklch(0.26 0.018 268)",
+          border: "1px solid rgba(168,85,247,0.22)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1534,7 +1669,7 @@ function CommentsDrawer({ post, meId, onClose }: {
           <div className="h-1 w-10 rounded-full bg-white/20" />
         </div>
         <div className="flex items-center justify-between px-5 pb-3 border-b shrink-0"
-          style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+          style={{ borderColor: "rgba(168,85,247,0.18)" }}>
           <h3 className="font-semibold text-sm">Comments</h3>
           <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground hover:text-foreground" /></button>
         </div>
@@ -1581,7 +1716,7 @@ function CommentsDrawer({ post, meId, onClose }: {
 
         {/* Input */}
         <div className="px-4 py-3 border-t flex items-center gap-2 shrink-0"
-          style={{ borderColor: "oklch(0.24 0.016 268)" }}>
+          style={{ borderColor: "rgba(168,85,247,0.18)" }}>
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -1677,7 +1812,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
         <DialogContent className="rounded-2xl max-w-sm w-[calc(100vw-1rem)] max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ImagePlus className="h-5 w-5" style={{ color: "oklch(0.75 0.18 280)" }} />
+              <ImagePlus className="h-5 w-5" style={{ color: "#c084fc" }} />
               New post
             </DialogTitle>
           </DialogHeader>
@@ -1687,9 +1822,9 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
               <div onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
                 onClick={() => inputRef.current?.click()}
                 className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer py-10 transition-all hover:border-primary/50"
-                style={{ borderColor: "oklch(0.28 0.018 268)" }}>
+                style={{ borderColor: "rgba(168,85,247,0.28)" }}>
                 <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                  style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
+                  style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.28)" }}>
                   <Upload className="h-5 w-5 text-primary" />
                 </div>
                 <div className="text-center">
@@ -1767,7 +1902,7 @@ function UploadPostDialog({ open, onOpenChange, userId }: {
               ) : (
                 <>
                   <div className="h-9 w-9 rounded-xl grid place-items-center shrink-0"
-                    style={{ background: "oklch(0.65 0.22 280 / 0.12)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                    style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.20)" }}>
                     <Music className="h-4 w-4 text-primary" />
                   </div>
                   <span className="flex-1 text-left text-muted-foreground">Add music</span>
@@ -1877,7 +2012,7 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
           {!searching && !query && (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
               <div className="h-12 w-12 rounded-2xl grid place-items-center"
-                style={{ background: "oklch(0.65 0.22 280 / 0.10)", border: "1px solid oklch(0.65 0.22 280 / 0.20)" }}>
+                style={{ background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.20)" }}>
                 <Music className="h-5 w-5 text-primary" />
               </div>
               <p className="text-sm text-muted-foreground">Search for a song to add</p>
@@ -1919,7 +2054,7 @@ function MusicPickerDialog({ open, onOpenChange, onSelect }: {
 // ─── Skeletons ────────────────────────────────────────────────
 function PostSkeleton() {
   return (
-    <div className="border-b pb-4" style={{ borderColor: "oklch(0.20 0.016 268)" }}>
+    <div className="border-b pb-4" style={{ borderColor: "rgba(168,85,247,0.14)" }}>
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="h-9 w-9 rounded-full shimmer" />
         <div className="space-y-1.5 flex-1">

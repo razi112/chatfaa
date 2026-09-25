@@ -23,6 +23,7 @@ export interface FollowUser {
   display_name: string | null;
   avatar_url: string | null;
   is_mutual?: boolean;
+  is_verified?: boolean;
 }
 
 export interface SuggestedUser {

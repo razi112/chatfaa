@@ -22,37 +22,43 @@ const features = [
     icon: Zap,
     title: "Instant delivery",
     body: "Messages stream the moment you send them — typing indicators, read receipts, live presence.",
-    color: "oklch(0.78 0.20 85)",
+    color: "#f59e0b",
+    glow: "rgba(245,158,11,0.15)",
   },
   {
     icon: Search,
     title: "Find by @username",
     body: "Search anyone instantly. No phone numbers, no email lookups, no social graphs needed.",
-    color: "oklch(0.72 0.20 200)",
+    color: "#22d3ee",
+    glow: "rgba(34,211,238,0.15)",
   },
   {
     icon: Shield,
     title: "Private by default",
     body: "Row-level security on every query. You only ever see conversations you're part of.",
-    color: "oklch(0.70 0.20 310)",
+    color: "#a78bfa",
+    glow: "rgba(167,139,250,0.15)",
   },
   {
     icon: Users,
     title: "Friend system",
     body: "Send a request, get accepted, start chatting. Intentional connections only.",
-    color: "oklch(0.76 0.19 152)",
+    color: "#34d399",
+    glow: "rgba(52,211,153,0.15)",
   },
   {
     icon: Globe,
     title: "Group chats",
     body: "Create groups, invite friends, manage members and admins with a few clicks.",
-    color: "oklch(0.74 0.20 240)",
+    color: "#60a5fa",
+    glow: "rgba(96,165,250,0.15)",
   },
   {
     icon: Moon,
     title: "Built for the dark",
     body: "A focused, low-glare interface that feels at home next to your editor at 2 am.",
-    color: "oklch(0.68 0.18 280)",
+    color: "#f472b6",
+    glow: "rgba(244,114,182,0.15)",
   },
 ];
 
@@ -71,54 +77,83 @@ function Landing() {
   }, [user, loading, navigate]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      {/* Background ambient orbs */}
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden mesh-bg">
+
+      {/* ── Ambient orbs ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div
-          className="orb absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-30"
+          className="orb absolute -top-56 left-1/2 -translate-x-1/2 w-[1000px] h-[700px] rounded-full"
           style={{
-            background: "radial-gradient(ellipse, oklch(0.55 0.22 280 / 0.5) 0%, transparent 70%)",
-            filter: "blur(60px)",
+            background: "radial-gradient(ellipse, rgba(124,58,237,0.45) 0%, rgba(236,72,153,0.20) 45%, transparent 70%)",
+            filter: "blur(70px)",
           }}
         />
         <div
-          className="orb orb-delay absolute top-1/3 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
+          className="orb orb-delay absolute top-1/3 -left-48 w-[550px] h-[550px] rounded-full"
           style={{
-            background: "radial-gradient(ellipse, oklch(0.65 0.20 320 / 0.6) 0%, transparent 70%)",
-            filter: "blur(80px)",
+            background: "radial-gradient(ellipse, rgba(99,102,241,0.35) 0%, transparent 70%)",
+            filter: "blur(90px)",
           }}
         />
         <div
-          className="orb absolute bottom-1/4 -right-40 w-[600px] h-[600px] rounded-full opacity-20"
+          className="orb orb-delay-2 absolute bottom-1/4 -right-48 w-[650px] h-[650px] rounded-full"
           style={{
-            background: "radial-gradient(ellipse, oklch(0.60 0.20 240 / 0.5) 0%, transparent 70%)",
+            background: "radial-gradient(ellipse, rgba(236,72,153,0.30) 0%, rgba(249,115,22,0.15) 50%, transparent 70%)",
+            filter: "blur(90px)",
+          }}
+        />
+        {/* Extra mid orb */}
+        <div
+          className="orb-delay absolute top-2/3 left-1/4 w-[400px] h-[400px] rounded-full"
+          style={{
+            background: "radial-gradient(ellipse, rgba(168,85,247,0.20) 0%, transparent 70%)",
             filter: "blur(80px)",
           }}
         />
       </div>
 
-      {/* Nav */}
+      {/* ── Navbar ── */}
       <header className="relative z-20 flex items-center justify-between px-4 sm:px-6 md:px-14 py-4 sm:py-5">
+        {/* Glass pill nav */}
         <div className="flex items-center gap-3">
           <div
-            className="grid h-10 w-10 place-items-center rounded-2xl shadow-[var(--shadow-glow)]"
-            style={{ background: "var(--gradient-primary)" }}
+            className="grid h-10 w-10 place-items-center rounded-2xl"
+            style={{
+              background: "var(--gradient-primary)",
+              boxShadow: "var(--shadow-glow)",
+            }}
           >
             <MessageCircle className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">chatfaa</span>
+          <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "var(--gradient-primary)" }}>
+            chatfaa
+          </span>
         </div>
-        <nav className="flex items-center gap-2">
+        <nav
+          className="flex items-center gap-1 px-2 py-1.5 rounded-full"
+          style={{
+            background: "rgba(14,14,28,0.65)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+            border: "1px solid rgba(168,85,247,0.20)",
+            boxShadow: "0 4px 24px -4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
+          }}
+        >
           <Link to="/auth">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm"
+              className="text-muted-foreground hover:text-foreground hover:bg-white/8 rounded-full px-4">
               Log in
             </Button>
           </Link>
           <Link to="/auth" search={{ mode: "signup" } as never}>
             <Button
               size="sm"
-              className="gap-2 px-5 shadow-[var(--shadow-glow)]"
-              style={{ background: "var(--gradient-primary)" }}
+              className="gap-2 px-5 rounded-full font-semibold text-white"
+              style={{
+                background: "var(--gradient-primary)",
+                boxShadow: "var(--shadow-glow-sm)",
+              }}
             >
               Get started <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -127,21 +162,27 @@ function Landing() {
       </header>
 
       <main className="relative z-10">
-        {/* Hero */}
+
+        {/* ── Hero ── */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14 pb-20 sm:pt-20 sm:pb-28 text-center md:pt-32">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-xs font-medium mb-8"
+          <div
+            className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-xs font-semibold mb-8 animate-fade-up"
             style={{
-              background: "oklch(0.65 0.22 280 / 0.12)",
-              border: "1px solid oklch(0.65 0.22 280 / 0.3)",
-              color: "oklch(0.80 0.15 280)",
-            }}>
+              background: "rgba(168,85,247,0.12)",
+              border: "1px solid rgba(168,85,247,0.35)",
+              color: "#c084fc",
+              boxShadow: "0 0 20px -4px rgba(168,85,247,0.25)",
+            }}
+          >
             <Sparkles className="h-3.5 w-3.5" />
             Real-time · No phone number · Just a username
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6">
+          <h1
+            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6 animate-fade-up-1"
+          >
             Chat with anyone,
             <br className="hidden sm:block" />
             <span
@@ -152,18 +193,18 @@ function Landing() {
             </span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-base md:text-xl text-muted-foreground leading-relaxed mb-10 sm:mb-12">
+          <p className="mx-auto max-w-2xl text-base md:text-xl text-muted-foreground leading-relaxed mb-10 sm:mb-12 animate-fade-up-2">
             Chatfaa is a fast, private messenger built for friends, gamers, and study groups.
             Find anyone by username — no phone, no drama. Just conversations.
           </p>
 
-      {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 sm:mb-16 px-4 sm:px-0">
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 sm:mb-16 px-4 sm:px-0 animate-fade-up-3">
             <Link to="/auth" search={{ mode: "signup" } as never} className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="w-full sm:w-auto h-13 px-8 text-base gap-2.5 shadow-[var(--shadow-glow)]"
-                style={{ background: "var(--gradient-primary)" }}
+                className="w-full sm:w-auto h-13 px-8 text-base gap-2.5 font-semibold text-white rounded-2xl pulse-glow"
+                style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
               >
                 Create your @username <ArrowRight className="h-4 w-4" />
               </Button>
@@ -172,14 +213,21 @@ function Landing() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto h-13 px-8 text-base border-border/60 hover:bg-card"
+                className="w-full sm:w-auto h-13 px-8 text-base rounded-2xl"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid rgba(168,85,247,0.25)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+                }}
               >
                 I already have an account
               </Button>
             </Link>
           </div>
 
-          {/* Stats row */}
+          {/* Stats */}
           <div className="flex flex-wrap justify-center gap-10 text-center">
             {stats.map(({ label, value }) => (
               <div key={label}>
@@ -195,47 +243,70 @@ function Landing() {
           </div>
         </section>
 
-        {/* Mock chat preview */}
+        {/* ── Mock chat preview ── */}
         <section className="mx-auto max-w-4xl px-4 sm:px-6 pb-20 sm:pb-28 flex justify-center">
           <div
-            className="w-full rounded-3xl overflow-hidden shadow-[0_40px_120px_-20px_oklch(0_0_0/0.7)]"
-            style={{ border: "1px solid oklch(0.30 0.018 268 / 0.7)" }}
+            className="w-full rounded-3xl overflow-hidden"
+            style={{
+              background: "rgba(14,14,28,0.70)",
+              backdropFilter: "blur(32px) saturate(180%)",
+              WebkitBackdropFilter: "blur(32px) saturate(180%)",
+              border: "1px solid rgba(168,85,247,0.22)",
+              boxShadow:
+                "0 40px 120px -20px rgba(0,0,0,0.75), " +
+                "0 0 0 1px rgba(168,85,247,0.12), " +
+                "inset 0 1px 0 rgba(255,255,255,0.10)",
+            }}
           >
             {/* Window chrome */}
-            <div className="flex items-center gap-2 px-5 py-4" style={{ background: "oklch(0.13 0.015 268)" }}>
-              <span className="h-3 w-3 rounded-full bg-destructive/70" />
-              <span className="h-3 w-3 rounded-full" style={{ background: "oklch(0.75 0.18 85 / 0.7)" }} />
-              <span className="h-3 w-3 rounded-full" style={{ background: "oklch(0.75 0.18 150 / 0.7)" }} />
+            <div
+              className="flex items-center gap-2 px-5 py-4"
+              style={{
+                background: "rgba(255,255,255,0.035)",
+                borderBottom: "1px solid rgba(168,85,247,0.15)",
+              }}
+            >
+              <span className="h-3 w-3 rounded-full" style={{ background: "rgba(244,63,94,0.7)" }} />
+              <span className="h-3 w-3 rounded-full" style={{ background: "rgba(251,191,36,0.7)" }} />
+              <span className="h-3 w-3 rounded-full" style={{ background: "rgba(52,211,153,0.7)" }} />
               <span className="ml-4 text-xs text-muted-foreground font-medium">chatfaa — @alex</span>
             </div>
+
             {/* Chat body */}
-            <div
-              className="flex"
-              style={{ background: "oklch(0.12 0.014 268)", minHeight: "320px" }}
-            >
+            <div className="flex" style={{ minHeight: "320px" }}>
               {/* Sidebar */}
               <div
                 className="hidden sm:block w-56 shrink-0 border-r p-3 space-y-1"
-                style={{ background: "oklch(0.10 0.013 268)", borderColor: "oklch(0.22 0.016 268)" }}
+                style={{
+                  background: "rgba(255,255,255,0.025)",
+                  borderColor: "rgba(168,85,247,0.15)",
+                }}
               >
                 {[
-                  { name: "alex_dev", active: true, online: true },
-                  { name: "sara_m", active: false, online: true },
+                  { name: "alex_dev",      active: true,  online: true  },
+                  { name: "sara_m",        active: false, online: true  },
                   { name: "weekend_plans", active: false, online: false, group: true },
-                  { name: "john_k", active: false, online: false },
+                  { name: "john_k",        active: false, online: false },
                 ].map((c) => (
                   <div
                     key={c.name}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm"
                     style={{
-                      background: c.active ? "oklch(0.65 0.22 280 / 0.15)" : "transparent",
-                      color: c.active ? "white" : "oklch(0.65 0.018 268)",
+                      background: c.active
+                        ? "rgba(168,85,247,0.18)"
+                        : "transparent",
+                      border: c.active ? "1px solid rgba(168,85,247,0.25)" : "1px solid transparent",
+                      color: c.active ? "white" : "rgba(192,192,220,0.6)",
                     }}
                   >
                     <div className="relative">
                       <div
                         className="h-7 w-7 rounded-full grid place-items-center text-[10px] font-bold text-white shrink-0"
-                        style={{ background: c.active ? "var(--gradient-primary)" : "oklch(0.22 0.018 268)" }}
+                        style={{
+                          background: c.active
+                            ? "var(--gradient-primary)"
+                            : "rgba(255,255,255,0.08)",
+                        }}
                       >
                         {c.group ? "G" : c.name.slice(0, 1).toUpperCase()}
                       </div>
@@ -243,8 +314,8 @@ function Landing() {
                         <span
                           className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
                           style={{
-                            background: "oklch(0.76 0.19 152)",
-                            borderColor: "oklch(0.10 0.013 268)",
+                            background: "#34d399",
+                            borderColor: "rgba(14,14,28,0.9)",
                           }}
                         />
                       )}
@@ -253,38 +324,55 @@ function Landing() {
                   </div>
                 ))}
               </div>
+
               {/* Messages */}
               <div className="flex-1 flex flex-col px-6 py-5 gap-3">
                 {[
                   { me: false, text: "hey! just joined chatfaa 👋" },
-                  { me: true, text: "welcome! no phone number needed right 😄" },
+                  { me: true,  text: "welcome! no phone number needed right 😄" },
                   { me: false, text: "exactly — found you by username instantly" },
-                  { me: true, text: "that's the whole idea. clean and simple ✨" },
+                  { me: true,  text: "that's the whole idea. clean and simple ✨" },
                 ].map((msg, i) => (
                   <div key={i} className={`flex ${msg.me ? "justify-end" : "justify-start"}`}>
                     <div
-                      className="max-w-[65%] rounded-2xl px-4 py-2 text-sm"
+                      className="max-w-[65%] px-4 py-2 text-sm"
                       style={{
                         background: msg.me
                           ? "var(--gradient-primary)"
-                          : "oklch(0.18 0.016 268)",
-                        color: msg.me ? "white" : "oklch(0.90 0.005 260)",
+                          : "rgba(255,255,255,0.07)",
+                        backdropFilter: msg.me ? "none" : "blur(12px)",
+                        color: msg.me ? "white" : "rgba(240,240,255,0.90)",
                         borderRadius: msg.me ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                        border: msg.me
+                          ? "none"
+                          : "1px solid rgba(168,85,247,0.18)",
+                        boxShadow: msg.me
+                          ? "0 4px 16px -4px rgba(168,85,247,0.45)"
+                          : "inset 0 1px 0 rgba(255,255,255,0.08)",
                       }}
                     >
                       {msg.text}
                     </div>
                   </div>
                 ))}
+
                 {/* Input */}
                 <div
-                  className="mt-auto flex items-center gap-2 rounded-xl px-4 py-2.5"
-                  style={{ background: "oklch(0.18 0.016 268)", border: "1px solid oklch(0.26 0.018 268)" }}
+                  className="mt-auto flex items-center gap-2 rounded-2xl px-4 py-2.5"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    backdropFilter: "blur(12px)",
+                    border: "1px solid rgba(168,85,247,0.22)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                  }}
                 >
                   <span className="flex-1 text-sm text-muted-foreground">Message @alex_dev</span>
                   <div
-                    className="h-7 w-7 rounded-lg grid place-items-center"
-                    style={{ background: "var(--gradient-primary)" }}
+                    className="h-7 w-7 rounded-xl grid place-items-center"
+                    style={{
+                      background: "var(--gradient-primary)",
+                      boxShadow: "0 0 12px -2px rgba(168,85,247,0.6)",
+                    }}
                   >
                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-white fill-none stroke-current stroke-2">
                       <path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z" strokeLinecap="round" strokeLinejoin="round" />
@@ -296,13 +384,13 @@ function Landing() {
           </div>
         </section>
 
-        {/* Features */}
+        {/* ── Features ── */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-20 sm:pb-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              Everything you need,
+              Everything you need,{" "}
               <span
-                className="bg-clip-text text-transparent ml-2"
+                className="bg-clip-text text-transparent"
                 style={{ backgroundImage: "var(--gradient-primary)" }}
               >
                 nothing you don't.
@@ -312,33 +400,47 @@ function Landing() {
               Built lean and focused. Every feature earns its place.
             </p>
           </div>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {features.map(({ icon: Icon, title, body, color }) => (
+            {features.map(({ icon: Icon, title, body, color, glow }) => (
               <div
                 key={title}
-                className="group relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1"
+                className="group relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5"
                 style={{
-                  background: "oklch(0.15 0.015 268 / 0.8)",
-                  border: "1px solid oklch(0.25 0.018 268 / 0.7)",
-                  boxShadow: "0 4px 24px -8px oklch(0 0 0 / 0.4)",
+                  background: "rgba(255,255,255,0.035)",
+                  backdropFilter: "blur(20px) saturate(160%)",
+                  WebkitBackdropFilter: "blur(20px) saturate(160%)",
+                  border: "1px solid rgba(168,85,247,0.16)",
+                  boxShadow: "0 4px 24px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
                 }}
               >
-                {/* Hover glow */}
+                {/* Hover glow overlay */}
                 <div
-                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
                   style={{
-                    background: `radial-gradient(ellipse at top left, ${color}18 0%, transparent 60%)`,
+                    background: `radial-gradient(ellipse at top left, ${glow} 0%, transparent 65%)`,
                   }}
                 />
+                {/* Hover border glow */}
+                <div
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{
+                    boxShadow: `0 0 0 1px ${color}40, 0 8px 32px -8px ${color}30`,
+                  }}
+                />
+
+                {/* Icon */}
                 <div
                   className="relative grid h-11 w-11 place-items-center rounded-xl mb-5"
                   style={{
                     background: `${color}18`,
-                    border: `1px solid ${color}30`,
+                    border: `1px solid ${color}35`,
+                    boxShadow: `0 0 16px -4px ${color}40`,
                   }}
                 >
                   <Icon className="h-5 w-5" style={{ color }} />
                 </div>
+
                 <h3 className="relative font-semibold text-base mb-2">{title}</h3>
                 <p className="relative text-sm text-muted-foreground leading-relaxed">{body}</p>
               </div>
@@ -346,22 +448,38 @@ function Landing() {
           </div>
         </section>
 
-        {/* CTA Banner */}
+        {/* ── CTA Banner ── */}
         <section className="mx-auto max-w-4xl px-4 sm:px-6 pb-20 sm:pb-28">
           <div
             className="relative rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center overflow-hidden"
             style={{
-              background: "linear-gradient(135deg, oklch(0.20 0.020 270) 0%, oklch(0.16 0.018 268) 100%)",
-              border: "1px solid oklch(0.30 0.020 268 / 0.7)",
-              boxShadow: "0 20px 80px -20px oklch(0.65 0.22 280 / 0.3)",
+              background: "rgba(255,255,255,0.04)",
+              backdropFilter: "blur(32px) saturate(180%)",
+              WebkitBackdropFilter: "blur(32px) saturate(180%)",
+              border: "1px solid rgba(168,85,247,0.28)",
+              boxShadow:
+                "0 20px 80px -20px rgba(168,85,247,0.35), " +
+                "0 0 0 1px rgba(168,85,247,0.10), " +
+                "inset 0 1px 0 rgba(255,255,255,0.10)",
             }}
           >
+            {/* Inner radial glow */}
             <div
-              className="absolute inset-0 rounded-3xl"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                background: "radial-gradient(ellipse at top, oklch(0.65 0.22 280 / 0.12) 0%, transparent 60%)",
+                background:
+                  "radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.20) 0%, transparent 65%)",
               }}
             />
+            {/* Corner accent */}
+            <div
+              className="absolute -top-16 -right-16 w-64 h-64 rounded-full pointer-events-none"
+              style={{
+                background: "radial-gradient(ellipse, rgba(236,72,153,0.18) 0%, transparent 70%)",
+                filter: "blur(30px)",
+              }}
+            />
+
             <h2 className="relative text-3xl md:text-4xl font-bold tracking-tight mb-4">
               Ready to start chatting?
             </h2>
@@ -371,8 +489,11 @@ function Landing() {
             <Link to="/auth" search={{ mode: "signup" } as never}>
               <Button
                 size="lg"
-                className="relative h-13 px-10 text-base gap-2.5 shadow-[var(--shadow-glow)]"
-                style={{ background: "var(--gradient-primary)" }}
+                className="relative h-13 px-10 text-base gap-2.5 font-semibold text-white rounded-2xl"
+                style={{
+                  background: "var(--gradient-primary)",
+                  boxShadow: "var(--shadow-glow)",
+                }}
               >
                 Create your free account <ArrowRight className="h-4 w-4" />
               </Button>
@@ -380,10 +501,10 @@ function Landing() {
           </div>
         </section>
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         <footer
           className="border-t py-8 text-center text-sm text-muted-foreground"
-          style={{ borderColor: "oklch(0.22 0.016 268)" }}
+          style={{ borderColor: "rgba(168,85,247,0.15)" }}
         >
           <div className="flex items-center justify-center gap-2 mb-2">
             <div
@@ -392,7 +513,12 @@ function Landing() {
             >
               <MessageCircle className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="font-semibold text-foreground/70">chatfaa</span>
+            <span
+              className="font-semibold bg-clip-text text-transparent"
+              style={{ backgroundImage: "var(--gradient-primary)" }}
+            >
+              chatfaa
+            </span>
           </div>
           © {new Date().getFullYear()} chatfaa · Fast, private, username-first messaging
         </footer>

@@ -1,14 +1,11 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Home, MessageCircle, Play, User, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Liquid-glass floating pill navbar ────────────────────────
-// Matches Instagram's iOS / Android liquid-glass navbar:
-//   • Dark frosted-glass pill floating above the home indicator
-//   • Active item gets a distinct filled dark-capsule pill
-//   • Icons bold-white when active, dim-white when inactive
-//   • Profile item shows avatar or fallback initial
-//   • No labels — icon-only, compact
+// Deep-space glass pill with violet-pink accent glow.
+// Active item: semi-transparent violet capsule with inner highlight.
+// Inactive icons: dim white. Active icons: full white + glow.
 
 type NavItem = {
   to: string;
@@ -18,10 +15,10 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/feed",    icon: Home,          label: "Feed" },
+  { to: "/feed",    icon: Home,          label: "Feed"     },
   { to: "/people",  icon: Search,        label: "Discover" },
-  { to: "/chat",    icon: MessageCircle, label: "Chat" },
-  { to: "/reels",   icon: Play,          label: "Reels" },
+  { to: "/chat",    icon: MessageCircle, label: "Chat"     },
+  { to: "/reels",   icon: Play,          label: "Reels"    },
   { to: "/profile", icon: User,          label: "Profile", isProfile: true },
 ];
 
@@ -43,28 +40,36 @@ export function BottomNav({
   const initials = (username ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    /* Outer wrapper: fixed above home indicator, centred */
     <div
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
-      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      style={{ paddingBottom: "max(1.1rem, env(safe-area-inset-bottom))" }}
     >
-      {/* The main pill shell */}
+      {/* Pill shell */}
       <nav
-        className="pointer-events-auto flex items-center px-2 py-2 rounded-full gap-0.5"
+        className="pointer-events-auto flex items-center px-2 py-2 rounded-full gap-0.5 bottom-nav-pill"
         style={{
-          background: "rgba(18, 18, 18, 0.82)",
-          backdropFilter: "blur(28px) saturate(200%) brightness(0.9)",
-          WebkitBackdropFilter: "blur(28px) saturate(200%) brightness(0.9)",
-          border: "1px solid rgba(255,255,255,0.11)",
+          /* Deep glass with violet tint */
+          background:
+            "linear-gradient(180deg, rgba(20,14,40,0.88) 0%, rgba(10,8,24,0.92) 100%)",
+          backdropFilter: "blur(36px) saturate(220%) brightness(0.88)",
+          WebkitBackdropFilter: "blur(36px) saturate(220%) brightness(0.88)",
+          border: "1px solid rgba(168,85,247,0.28)",
           boxShadow:
-            "0 12px 40px rgba(0,0,0,0.55), " +
-            "0 2px 8px rgba(0,0,0,0.3), " +
-            "inset 0 1px 0 rgba(255,255,255,0.09)",
-          marginLeft: "max(0.5rem, env(safe-area-inset-left))",
-          marginRight: "max(0.5rem, env(safe-area-inset-right))",
+            /* outer spread glow */
+            "0 0 0 1px rgba(168,85,247,0.10)," +
+            /* main drop shadow */
+            "0 20px 56px rgba(0,0,0,0.65)," +
+            "0 6px 16px rgba(0,0,0,0.40)," +
+            /* top inner highlight */
+            "inset 0 1px 0 rgba(255,255,255,0.12)," +
+            /* bottom inner shadow */
+            "inset 0 -1px 0 rgba(168,85,247,0.08)," +
+            /* violet under-glow */
+            "0 8px 32px -4px rgba(168,85,247,0.22)",
         }}
       >
         {NAV_ITEMS.map((item) => {
+          /* ── Profile item ── */
           if (item.isProfile) {
             const isActive = active === item.to;
             return (
@@ -74,54 +79,81 @@ export function BottomNav({
                     "h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
                     isActive ? "px-3.5" : "w-12"
                   )}
-                  style={isActive ? {
-                    background: "rgba(255,255,255,0.14)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                  } : {}}
+                  style={
+                    isActive
+                      ? {
+                          background:
+                            "linear-gradient(135deg, rgba(168,85,247,0.22) 0%, rgba(236,72,153,0.14) 100%)",
+                          border: "1px solid rgba(168,85,247,0.32)",
+                          boxShadow:
+                            "inset 0 1px 0 rgba(255,255,255,0.16)," +
+                            "0 0 16px -4px rgba(168,85,247,0.45)," +
+                            "0 2px 10px rgba(0,0,0,0.30)",
+                        }
+                      : {}
+                  }
                 >
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt=""
-                      className={cn("rounded-full object-cover transition-all", isActive ? "h-8 w-8 ring-2 ring-white/80" : "h-7 w-7 opacity-70")} />
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      className={cn(
+                        "rounded-full object-cover transition-all",
+                        isActive
+                          ? "h-8 w-8 ring-2 ring-violet-400/70 ring-offset-1 ring-offset-transparent"
+                          : "h-7 w-7 opacity-60"
+                      )}
+                    />
                   ) : (
                     <div
-                      className={cn("rounded-full grid place-items-center text-white font-bold transition-all",
-                        isActive ? "h-8 w-8 text-sm ring-2 ring-white/80" : "h-7 w-7 text-xs opacity-70")}
-                      style={{ background: "var(--gradient-primary)" }}
-                    >{initials}</div>
+                      className={cn(
+                        "rounded-full grid place-items-center text-white font-bold transition-all",
+                        isActive ? "h-8 w-8 text-sm" : "h-7 w-7 text-xs opacity-60"
+                      )}
+                      style={{
+                        background: "var(--gradient-primary)",
+                        boxShadow: isActive
+                          ? "0 0 12px -2px rgba(168,85,247,0.6)"
+                          : "none",
+                      }}
+                    >
+                      {initials}
+                    </div>
                   )}
                 </div>
               </Link>
             );
           }
 
-          // Chat item: may use a callback instead of Link
+          /* ── Chat item (optional callback) ── */
           if (item.to === "/chat" && onChatOpen) {
             const isActive = active === item.to;
             const Icon = item.icon;
             return (
-              <button key={item.to} onClick={onChatOpen} aria-label={item.label} className="mx-0.5">
-                <div
-                  className={cn(
-                    "relative h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
-                    isActive ? "px-4" : "w-12"
-                  )}
-                  style={isActive ? {
-                    background: "rgba(255,255,255,0.14)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                  } : {}}
-                >
-                  <Icon className={cn("transition-all duration-200", isActive ? "h-[22px] w-[22px] text-white" : "h-[22px] w-[22px] text-white/45")}
-                    strokeWidth={isActive ? 2.4 : 1.8} />
-                  {badge[item.to] != null && badge[item.to]! > 0 && (
-                    <span className="absolute top-1.5 right-1.5 h-[7px] w-[7px] rounded-full" style={{ background: "#ed4956" }} />
-                  )}
-                </div>
+              <button
+                key={item.to}
+                onClick={onChatOpen}
+                aria-label={item.label}
+                className="mx-0.5"
+              >
+                <NavCapsule isActive={isActive} badge={badge[item.to]}>
+                  <Icon
+                    className="transition-all duration-200"
+                    style={{
+                      width: 22, height: 22,
+                      color: isActive ? "#ffffff" : "rgba(255,255,255,0.40)",
+                      filter: isActive
+                        ? "drop-shadow(0 0 6px rgba(168,85,247,0.7))"
+                        : "none",
+                    }}
+                    strokeWidth={isActive ? 2.4 : 1.8}
+                  />
+                </NavCapsule>
               </button>
             );
           }
 
+          /* ── Regular nav item ── */
           return (
             <NavPill key={item.to} item={item} active={active} badge={badge[item.to]} />
           );
@@ -131,7 +163,51 @@ export function BottomNav({
   );
 }
 
-// ─── Individual nav pill ──────────────────────────────────────
+/* ── Shared active capsule shell ─────────────────────────────── */
+function NavCapsule({
+  isActive,
+  badge,
+  children,
+}: {
+  isActive: boolean;
+  badge?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
+        isActive ? "px-4" : "w-12"
+      )}
+      style={
+        isActive
+          ? {
+              background:
+                "linear-gradient(135deg, rgba(168,85,247,0.22) 0%, rgba(236,72,153,0.14) 100%)",
+              border: "1px solid rgba(168,85,247,0.32)",
+              boxShadow:
+                "inset 0 1px 0 rgba(255,255,255,0.16)," +
+                "0 0 16px -4px rgba(168,85,247,0.45)," +
+                "0 2px 10px rgba(0,0,0,0.30)",
+            }
+          : {}
+      }
+    >
+      {children}
+      {badge != null && badge > 0 && (
+        <span
+          className="absolute top-1.5 right-1.5 h-[7px] w-[7px] rounded-full"
+          style={{
+            background: "#f43f5e",
+            boxShadow: "0 0 6px 1px rgba(244,63,94,0.7)",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Individual nav pill (Link-based) ───────────────────────── */
 function NavPill({
   item,
   active: activePath,
@@ -146,40 +222,19 @@ function NavPill({
 
   return (
     <Link to={item.to as any} aria-label={item.label} className="mx-0.5">
-      <div
-        className={cn(
-          "relative h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90",
-          isActive ? "px-4" : "w-12"
-        )}
-        style={
-          isActive
-            ? {
-                background: "rgba(255,255,255,0.14)",
-                boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }
-            : {}
-        }
-      >
+      <NavCapsule isActive={isActive} badge={badge}>
         <Icon
-          className={cn(
-            "transition-all duration-200",
-            isActive
-              ? "h-[22px] w-[22px] text-white"
-              : "h-[22px] w-[22px] text-white/45"
-          )}
+          className="transition-all duration-200"
+          style={{
+            width: 22, height: 22,
+            color: isActive ? "#ffffff" : "rgba(255,255,255,0.40)",
+            filter: isActive
+              ? "drop-shadow(0 0 6px rgba(168,85,247,0.7))"
+              : "none",
+          }}
           strokeWidth={isActive ? 2.4 : 1.8}
         />
-
-        {/* Badge dot */}
-        {badge != null && badge > 0 && (
-          <span
-            className="absolute top-1.5 right-1.5 h-[7px] w-[7px] rounded-full"
-            style={{ background: "#ed4956" }}
-          />
-        )}
-      </div>
+      </NavCapsule>
     </Link>
   );
 }

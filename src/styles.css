@@ -36,111 +36,196 @@
   --font-display: "Inter", "ui-sans-serif", system-ui, sans-serif;
 }
 
-/* ── Dark theme (default) — Instagram dark ────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   DARK THEME — Modern Deep-Space Glassmorphism
+   Base: Near-black blue-purple (#06060f) with vivid gradient accents
+   ══════════════════════════════════════════════════════════════ */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  /* Instagram dark: bg #000000, surface #121212 */
-  --background: #000000;
-  --foreground: #ffffff;
+  /* Deep-space background family */
+  --background:         #06060f;
+  --foreground:         #f0f0ff;
 
-  --card: #121212;
-  --card-foreground: #ffffff;
+  /* Glass surfaces — translucent dark purple */
+  --card:               #0e0e1c;
+  --card-foreground:    #f0f0ff;
 
-  --popover: #1c1c1c;
-  --popover-foreground: #ffffff;
+  --popover:            #131325;
+  --popover-foreground: #f0f0ff;
 
-  /* Instagram gradient primary (story ring / CTA) */
-  --primary: #e1306c;
+  /* Brand — electric violet-pink gradient */
+  --primary:            #a855f7;
   --primary-foreground: #ffffff;
 
-  --secondary: #1c1c1c;
-  --secondary-foreground: #ffffff;
+  --secondary:          #131325;
+  --secondary-foreground: #f0f0ff;
 
-  /* Instagram secondary text: #A8A8A8 */
-  --muted: #1c1c1c;
-  --muted-foreground: #a8a8a8;
+  --muted:              #131325;
+  --muted-foreground:   #8080aa;
 
-  --accent: #262626;
-  --accent-foreground: #ffffff;
+  --accent:             #1e1e38;
+  --accent-foreground:  #f0f0ff;
 
-  --destructive: #ed4956;
+  --destructive:        #f43f5e;
   --destructive-foreground: #ffffff;
 
-  /* Instagram border: very subtle dark line */
-  --border: #262626;
-  --input: #1c1c1c;
-  --ring: #e1306c;
+  --border:             rgba(130, 100, 255, 0.18);
+  --input:              #0e0e1c;
+  --ring:               #a855f7;
 
-  /* Sidebar same as surface */
-  --sidebar: #000000;
-  --sidebar-foreground: #ffffff;
-  --sidebar-accent: #1c1c1c;
-  --sidebar-accent-foreground: #ffffff;
+  --sidebar:            #06060f;
+  --sidebar-foreground: #f0f0ff;
+  --sidebar-accent:     #1e1e38;
+  --sidebar-accent-foreground: #f0f0ff;
 
-  --online: #3897f0;
+  --online: #34d399;
 
-  /* Instagram story ring gradient */
-  --gradient-primary: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  --gradient-hero: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(225,48,108,0.20) 0%, transparent 70%);
-  --gradient-glow: radial-gradient(ellipse 60% 40% at 50% 100%, rgba(225,48,108,0.12) 0%, transparent 60%);
-  --gradient-card: linear-gradient(145deg, #1a1a1a, #121212);
-  --shadow-glow: 0 0 40px -8px rgba(225,48,108,0.35), 0 20px 60px -20px rgba(225,48,108,0.15);
-  --shadow-card: 0 8px 32px -8px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.4);
-  --shadow-subtle: 0 2px 12px -2px rgba(0,0,0,0.5);
+  /* ── Gradient tokens ── */
+  /* Primary: violet → fuchsia → pink */
+  --gradient-primary:
+    linear-gradient(135deg, #7c3aed 0%, #a855f7 30%, #ec4899 65%, #f97316 100%);
+
+  /* Mesh/hero backdrop */
+  --gradient-hero:
+    radial-gradient(ellipse 80% 55% at 50% -5%,
+      rgba(139, 92, 246, 0.28) 0%,
+      rgba(236, 72, 153, 0.12) 50%,
+      transparent 75%);
+
+  --gradient-glow:
+    radial-gradient(ellipse 60% 40% at 50% 100%,
+      rgba(168, 85, 247, 0.15) 0%,
+      transparent 60%);
+
+  /* Glass card background */
+  --gradient-card:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.020) 100%);
+
+  /* Sidebar background */
+  --gradient-sidebar:
+    linear-gradient(180deg,
+      rgba(124, 58, 237, 0.06) 0%,
+      rgba(6, 6, 15, 0) 100%);
+
+  /* ── Shadow tokens ── */
+  --shadow-glow:
+    0 0 0 1px rgba(168, 85, 247, 0.35),
+    0 0 24px -4px rgba(168, 85, 247, 0.55),
+    0 20px 60px -20px rgba(236, 72, 153, 0.25);
+
+  --shadow-glow-sm:
+    0 0 0 1px rgba(168, 85, 247, 0.25),
+    0 0 12px -2px rgba(168, 85, 247, 0.40);
+
+  --shadow-card:
+    0 8px 32px -8px rgba(0, 0, 0, 0.7),
+    0 2px 8px -2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --shadow-glass:
+    0 8px 40px -8px rgba(0, 0, 0, 0.6),
+    0 2px 12px -2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+
+  --shadow-subtle:
+    0 2px 12px -2px rgba(0, 0, 0, 0.6);
 }
 
-/* ── Light theme — Instagram light ───────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   LIGHT THEME — Frosted Glass on White
+   ══════════════════════════════════════════════════════════════ */
 :root.light {
-  /* Instagram light: bg #FFFFFF, text #000000 */
-  --background: #ffffff;
-  --foreground: #000000;
+  --background:         #f5f3ff;
+  --foreground:         #1a0a2e;
 
-  --card: #ffffff;
-  --card-foreground: #000000;
+  --card:               rgba(255, 255, 255, 0.72);
+  --card-foreground:    #1a0a2e;
 
-  --popover: #ffffff;
-  --popover-foreground: #000000;
+  --popover:            rgba(255, 255, 255, 0.92);
+  --popover-foreground: #1a0a2e;
 
-  --primary: #e1306c;
+  --primary:            #7c3aed;
   --primary-foreground: #ffffff;
 
-  --secondary: #fafafa;
-  --secondary-foreground: #000000;
+  --secondary:          rgba(238, 232, 255, 0.7);
+  --secondary-foreground: #1a0a2e;
 
-  /* Instagram light secondary text: #8E8E8E */
-  --muted: #fafafa;
-  --muted-foreground: #8e8e8e;
+  --muted:              rgba(238, 232, 255, 0.6);
+  --muted-foreground:   #7060a0;
 
-  --accent: #efefef;
-  --accent-foreground: #000000;
+  --accent:             rgba(221, 214, 255, 0.65);
+  --accent-foreground:  #1a0a2e;
 
-  --destructive: #ed4956;
+  --destructive:        #f43f5e;
   --destructive-foreground: #ffffff;
 
-  /* Instagram light border: #dbdbdb */
-  --border: #dbdbdb;
-  --input: #fafafa;
-  --ring: #e1306c;
+  --border:             rgba(124, 58, 237, 0.20);
+  --input:              rgba(255, 255, 255, 0.75);
+  --ring:               #7c3aed;
 
-  --sidebar: #fafafa;
-  --sidebar-foreground: #000000;
-  --sidebar-accent: #efefef;
-  --sidebar-accent-foreground: #000000;
+  --sidebar:            rgba(245, 243, 255, 0.85);
+  --sidebar-foreground: #1a0a2e;
+  --sidebar-accent:     rgba(221, 214, 255, 0.5);
+  --sidebar-accent-foreground: #1a0a2e;
 
-  --online: #3897f0;
+  --online: #10b981;
 
-  --gradient-primary: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  --gradient-hero: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(225,48,108,0.12) 0%, transparent 70%);
-  --gradient-glow: radial-gradient(ellipse 60% 40% at 50% 100%, rgba(225,48,108,0.08) 0%, transparent 60%);
-  --gradient-card: linear-gradient(145deg, #ffffff, #fafafa);
-  --shadow-glow: 0 0 40px -8px rgba(225,48,108,0.20), 0 20px 60px -20px rgba(225,48,108,0.10);
-  --shadow-card: 0 8px 32px -8px rgba(0,0,0,0.08), 0 2px 8px -2px rgba(0,0,0,0.04);
-  --shadow-subtle: 0 2px 12px -2px rgba(0,0,0,0.06);
+  --gradient-primary:
+    linear-gradient(135deg, #7c3aed 0%, #a855f7 35%, #ec4899 70%, #f97316 100%);
+
+  --gradient-hero:
+    radial-gradient(ellipse 80% 55% at 50% -5%,
+      rgba(124, 58, 237, 0.18) 0%,
+      rgba(236, 72, 153, 0.08) 50%,
+      transparent 75%);
+
+  --gradient-glow:
+    radial-gradient(ellipse 60% 40% at 50% 100%,
+      rgba(124, 58, 237, 0.10) 0%,
+      transparent 60%);
+
+  --gradient-card:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.85) 0%,
+      rgba(255, 255, 255, 0.60) 100%);
+
+  --gradient-sidebar:
+    linear-gradient(180deg,
+      rgba(124, 58, 237, 0.05) 0%,
+      transparent 100%);
+
+  --shadow-glow:
+    0 0 0 1px rgba(124, 58, 237, 0.25),
+    0 0 20px -4px rgba(124, 58, 237, 0.35),
+    0 16px 48px -16px rgba(168, 85, 247, 0.20);
+
+  --shadow-glow-sm:
+    0 0 0 1px rgba(124, 58, 237, 0.20),
+    0 0 10px -2px rgba(124, 58, 237, 0.28);
+
+  --shadow-card:
+    0 8px 32px -8px rgba(0, 0, 0, 0.12),
+    0 2px 8px -2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  --shadow-glass:
+    0 8px 40px -8px rgba(0, 0, 0, 0.12),
+    0 2px 12px -2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+
+  --shadow-subtle:
+    0 2px 12px -2px rgba(0, 0, 0, 0.08);
 }
 
 
-
+/* ══════════════════════════════════════════════════════════════
+   BASE LAYER
+   ══════════════════════════════════════════════════════════════ */
 @layer base {
   * { border-color: var(--color-border); }
   html, body, #root { height: 100%; }
@@ -150,76 +235,168 @@
     font-family: var(--font-display);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Prevent horizontal overflow on every page */
     overflow-x: hidden;
   }
-  /* Prevent text size inflation on iOS */
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    /* Prevent tap-delay on all touch devices */
     touch-action: manipulation;
   }
-  /* Respect safe areas (notch, home bar) on iOS/Android */
   body {
     padding-top: env(safe-area-inset-top);
-    /* bottom padding handled per-page so fixed navbars sit above home indicator */
   }
-  /* Scrollbar styling */
+  /* Custom scrollbar */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #363636; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
-  /* Tap highlight removal on mobile */
+  ::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.3);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(168, 85, 247, 0.55);
+  }
   * { -webkit-tap-highlight-color: transparent; }
-  /* Inputs should not zoom on focus on iOS (font-size >= 16px prevents zoom) */
   input, textarea, select { font-size: max(16px, 1em); }
-  /* Ensure buttons are finger-friendly */
   button, a { touch-action: manipulation; }
 }
 
-/* Glass card utility */
+
+/* ══════════════════════════════════════════════════════════════
+   GLASS UTILITIES
+   ══════════════════════════════════════════════════════════════ */
+
+/* Base glass — used by cards, panels, etc. */
 .glass {
   background: var(--gradient-card);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-glass);
 }
 
-/* Shimmer animation for skeletons */
+/* Heavy glass — modals, drawers */
+.glass-heavy {
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.09) 0%,
+    rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.0);
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.0);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Light glass tint — for inputs, rows */
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Glowing border ring (accent) */
+.glass-ring {
+  box-shadow:
+    0 0 0 1px rgba(168, 85, 247, 0.5),
+    0 0 20px -4px rgba(168, 85, 247, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Nav pill glass */
+.glass-nav {
+  background: rgba(14, 14, 28, 0.75);
+  backdrop-filter: blur(32px) saturate(200%) brightness(0.95);
+  -webkit-backdrop-filter: blur(32px) saturate(200%) brightness(0.95);
+  border: 1px solid rgba(168, 85, 247, 0.20);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(168, 85, 247, 0.06);
+}
+
+/* Active nav-item capsule */
+.glass-nav-active {
+  background: rgba(168, 85, 247, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 2px 10px rgba(168, 85, 247, 0.25),
+    0 0 0 1px rgba(168, 85, 247, 0.20);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ANIMATED MESH BACKGROUND
+   ══════════════════════════════════════════════════════════════ */
+
+/* The full-page gradient mesh behind all content */
+.mesh-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%,   rgba(124, 58, 237, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 10%,  rgba(236, 72, 153, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 80%,  rgba(99,  102, 241, 0.14) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 50% at 90% 70%,  rgba(249, 115,  22, 0.10) 0%, transparent 55%),
+    var(--background);
+}
+
+/* ── Floating ambient orbs ── */
+@keyframes float-orb {
+  0%,  100% { transform: translateY(0)    scale(1);    opacity: 0.55; }
+  33%       { transform: translateY(-28px) scale(1.06); opacity: 0.75; }
+  66%       { transform: translateY(-14px) scale(0.97); opacity: 0.60; }
+}
+@keyframes float-orb-b {
+  0%,  100% { transform: translateY(0)   rotate(0deg)   scale(1);    opacity: 0.45; }
+  50%       { transform: translateY(-22px) rotate(8deg)  scale(1.08); opacity: 0.65; }
+}
+.orb         { animation: float-orb   10s ease-in-out infinite; }
+.orb-delay   { animation: float-orb-b 13s ease-in-out infinite 2.5s; }
+.orb-delay-2 { animation: float-orb   15s ease-in-out infinite 5s; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   SHIMMER / SKELETON
+   ══════════════════════════════════════════════════════════════ */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
-
 .shimmer {
   background: linear-gradient(90deg,
     var(--muted) 0%,
-    var(--accent) 50%,
+    rgba(168, 85, 247, 0.12) 40%,
+    rgba(236, 72, 153, 0.10) 50%,
+    rgba(168, 85, 247, 0.12) 60%,
     var(--muted) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
+  animation: shimmer 2s ease-in-out infinite;
+  will-change: background-position;
+  transform: translateZ(0);
 }
 
-/* Glow pulse for online indicators */
+
+/* ══════════════════════════════════════════════════════════════
+   GLOW / PRESENCE
+   ══════════════════════════════════════════════════════════════ */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(56,151,240,0.5); }
-  50%       { box-shadow: 0 0 0 4px rgba(56,151,240,0); }
+  0%, 100% { box-shadow: 0 0 0 0   rgba(52, 211, 153, 0.55); }
+  50%       { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.0); }
 }
-.online-pulse {
-  animation: glow-pulse 2.5s ease-in-out infinite;
-}
+.online-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
 
-/* Floating gradient orbs */
-@keyframes float-orb {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
-  50% { transform: translateY(-30px) scale(1.05); opacity: 0.8; }
+/* Primary glow pulse — CTAs, badges */
+@keyframes primary-pulse {
+  0%, 100% { box-shadow: var(--shadow-glow); }
+  50%       { box-shadow: var(--shadow-glow-sm); }
 }
-.orb { animation: float-orb 8s ease-in-out infinite; }
-.orb-delay { animation-delay: 3s; }
+.pulse-glow { animation: primary-pulse 3s ease-in-out infinite; }
 
-/* Double-tap heart burst animation */
+
+/* ══════════════════════════════════════════════════════════════
+   CONTENT ANIMATIONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Double-tap heart */
 @keyframes heart-burst {
   0%   { transform: scale(0);   opacity: 1; }
   40%  { transform: scale(1.3); opacity: 1; }
@@ -228,142 +405,126 @@
 }
 .animate-heart-burst {
   animation: heart-burst 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+  will-change: transform, opacity;
 }
 
-/* Slow spin for music artwork vinyl */
+/* Vinyl spin */
 @keyframes spin-slow {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-.animate-spin-slow {
-  animation: spin-slow 4s linear infinite;
-}
+.animate-spin-slow { animation: spin-slow 4s linear infinite; }
 
-/* Scrolling marquee for music track name */
+/* Music marquee */
 @keyframes marquee {
-  0%   { transform: translateX(0); }
-  30%  { transform: translateX(0); }
-  70%  { transform: translateX(-60%); }
-  100% { transform: translateX(-60%); }
+  0%,  30% { transform: translateX(0); }
+  70%, 100% { transform: translateX(-60%); }
 }
 .animate-marquee {
   animation: marquee 6s ease-in-out infinite;
   display: inline-block;
   padding-right: 2rem;
+  will-change: transform;
 }
 
-/* ── Safe-area / notch helpers ────────────────────────────── */
-/* Sticky headers that account for iOS status bar */
+/* Fade-up entrance */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-up-1 { animation: fade-up 0.5s 0.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-up-2 { animation: fade-up 0.5s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-up-3 { animation: fade-up 0.5s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Scale-in for modals */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   SAFE AREA / LAYOUT HELPERS
+   ══════════════════════════════════════════════════════════════ */
 .safe-top    { padding-top:    env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 .safe-left   { padding-left:   env(safe-area-inset-left); }
 .safe-right  { padding-right:  env(safe-area-inset-right); }
 
-/* Hide scrollbars while keeping scroll functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-/* Fixed bottom nav: give it home-indicator clearance */
 .bottom-nav {
   padding-bottom: env(safe-area-inset-bottom);
 }
-
-/* Scrollable area that ends above the fixed bottom nav */
 .pb-bottom-nav {
   padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }
-
-/* ── Responsive touch targets ────────────────────────────── */
-/* All icon buttons get at least 44×44 px tap target on mobile */
-@media (max-width: 768px) {
-  .icon-btn {
-    min-width:  44px;
-    min-height: 44px;
-  }
-}
-
-/* ── Prevent content from hiding under fixed headers ─────── */
-.page-content {
-  padding-top: env(safe-area-inset-top);
-}
-
-/* ── Reels: hide sidebar rail on phones ─────────────────── */
-@media (max-width: 640px) {
-  .reels-sidebar { display: none !important; }
-  .reels-toggle  { display: none !important; }
-}
-
-/* ── Stories / media dialogs: full-screen on tiny phones ── */
-@media (max-width: 480px) {
-  .dialog-story {
-    width:  100vw  !important;
-    height: 100dvh !important;
-    max-width:  100vw  !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-  }
-}
-
-/* ── Fluid typography for headings ──────────────────────── */
-@media (max-width: 480px) {
-  h1 { font-size: clamp(2rem, 10vw, 3rem) !important; line-height: 1.1 !important; }
-}
-
-/* ── Remove iOS momentum scrolling rubber-band on fixed layers ─ */
-.no-overscroll { overscroll-behavior: none; }
-
-/* ── Feed max-width constraint on ultrawide ─────────────── */
-@media (min-width: 1400px) {
-  .feed-col { max-width: 520px; }
-}
-
-/* ── Responsive layout helpers ───────────────────────────── */
-
-/* Input font-size: already 16px in base, but reinforce for iOS zoom prevention */
-@media (max-width: 768px) {
-  input, textarea, select {
-    font-size: 16px !important;
-  }
-}
-
-/* ── BottomNav safe-area horizontal padding (notch phones) ── */
 .bottom-nav-pill {
   padding-left:  max(0.5rem, env(safe-area-inset-left));
   padding-right: max(0.5rem, env(safe-area-inset-right));
 }
+.page-content {
+  padding-top: env(safe-area-inset-top);
+}
+.no-overscroll { overscroll-behavior: none; }
+.overflow-clip-x { overflow-x: clip; }
 
-/* ── Very small phones (< 360px): tighten horizontal padding ─ */
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE / TOUCH TARGETS
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .icon-btn { min-width: 44px; min-height: 44px; }
+  input, textarea, select { font-size: 16px !important; }
+}
+@media (max-width: 640px) {
+  .reels-sidebar { display: none !important; }
+  .reels-toggle  { display: none !important; }
+  .reel-action-rail {
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+@media (max-width: 480px) {
+  .dialog-story {
+    width: 100vw !important; height: 100dvh !important;
+    max-width: 100vw !important; max-height: 100dvh !important;
+    border-radius: 0 !important; margin: 0 !important;
+  }
+  h1 { font-size: clamp(2rem, 10vw, 3rem) !important; line-height: 1.1 !important; }
+}
 @media (max-width: 359px) {
   .feed-posts-col { padding-left: 0.5rem; padding-right: 0.5rem; }
   .stories-scroll { padding-left: 0.75rem; }
-  /* Wizard modal: use full width minus tiny margin */
-  [data-radix-dialog-content] {
-    max-width: calc(100vw - 0.5rem) !important;
-  }
+  [data-radix-dialog-content] { max-width: calc(100vw - 0.5rem) !important; }
+  .profile-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .auth-card { padding: 1.25rem !important; }
+  [data-radix-sheet-content] { width: 100vw !important; max-width: 100vw !important; }
+  .wizard-step-pill { padding-left: 0.375rem !important; padding-right: 0.375rem !important; font-size: 8px !important; }
+}
+@media (max-width: 400px) {
+  .people-row { gap: 0.5rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+}
+@media (max-height: 600px) {
+  .music-trim-body { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; gap: 0.75rem !important; }
+}
+@media (max-width: 320px) {
+  .profile-stats { gap: 0.5rem !important; }
+  .profile-stats .stat-value { font-size: 0.875rem !important; }
+}
+@media (min-width: 1400px) {
+  .feed-col { max-width: 520px; }
 }
 
-/* ── Tablet (md) and above: hide bottom pill nav ─────────── */
-/* Already handled inline with md:hidden but reinforce here  */
-
-/* ── Ensure dialog content never overflows on tiny phones ── */
 [data-radix-dialog-content] {
   max-width: min(calc(100vw - 1rem), 480px) !important;
   max-height: 92dvh !important;
 }
-
-/* ── Prevent horizontal scroll bleed from absolute overlays ─ */
-.overflow-clip-x { overflow-x: clip; }
-
-/* ── Profile grid: 2-col on tiny screens instead of 3 ────── */
-@media (max-width: 359px) {
-  .profile-grid { grid-template-columns: repeat(2, 1fr) !important; }
-}
-
-/* ── Story viewer: always full-bleed on phones ───────────── */
 @media (max-width: 640px) {
   .story-viewer-box {
     width: 100vw !important;
@@ -371,86 +532,33 @@
     aspect-ratio: unset !important;
   }
 }
-
-/* ── Auth page: shrink card padding on very small phones ──── */
-@media (max-width: 359px) {
-  .auth-card { padding: 1.25rem !important; }
-}
-
-/* ── Chat sidebar: full width on phones narrower than 360px ─ */
-@media (max-width: 359px) {
-  [data-radix-sheet-content] { width: 100vw !important; max-width: 100vw !important; }
-}
-
-/* ── Settings page: on mobile make each section row finger-friendly ── */
 @media (max-width: 640px) {
   .settings-row-btn { padding-top: 0.875rem !important; padding-bottom: 0.875rem !important; }
 }
 
-/* ── Profile stats: wrap at 320px so numbers don't clip ── */
-@media (max-width: 320px) {
-  .profile-stats { gap: 0.5rem !important; }
-  .profile-stats .stat-value { font-size: 0.875rem !important; }
-}
 
-/* ── UploadPostWizard steps: very small phones ── */
-@media (max-width: 359px) {
-  .wizard-step-pill { padding-left: 0.375rem !important; padding-right: 0.375rem !important; font-size: 8px !important; }
-}
+/* ══════════════════════════════════════════════════════════════
+   240Hz — GPU-COMPOSITED RENDERING
+   ══════════════════════════════════════════════════════════════ */
+button, a, [role="button"] { will-change: transform; }
 
-/* ── People page UserRow: tighter gap on phones ─────────── */
-@media (max-width: 400px) {
-  .people-row { gap: 0.5rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
-}
+* { transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
 
-/* ── MusicTrimStep: ensure dialog fits short screens ─────── */
-@media (max-height: 600px) {
-  .music-trim-body { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; gap: 0.75rem !important; }
-}
-
-/* ── Reels: right action rail doesn't overlap iOS home bar ── */
-@media (max-width: 640px) {
-  .reel-action-rail {
-    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
-  }
-}
-
-/* ════════════════════════════════════════════════════════════
-   240Hz — GPU-accelerated smooth rendering
-   All animations/transitions use ONLY transform + opacity
-   so they run on the compositor thread (never triggers layout)
-   ════════════════════════════════════════════════════════════ */
-
-/* Promote interactive layers to their own GPU composite layer */
-button, a, [role="button"] {
-  will-change: transform;
-}
-
-/* All transitions: use transform/opacity only, ultra-short durations */
-* {
-  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* Instant tap feedback — no perceptible delay */
 button:active, a:active, [role="button"]:active {
   transform: scale(0.97);
   transition: transform 60ms cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 }
-
-/* Avatar + nav pill items: hardware-accelerated hover/active */
 .bottom-nav-pill button:active,
 .bottom-nav-pill a:active {
   transform: scale(0.93);
   transition: transform 50ms ease-out !important;
 }
 
-/* Images: prevent layout shift, force compositing */
 img {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
 
-/* Scroll containers: momentum scroll + GPU compositing */
 .overflow-y-auto,
 .overflow-y-scroll,
 [data-radix-scroll-area-viewport] {
@@ -460,7 +568,6 @@ img {
   transform: translateZ(0);
 }
 
-/* Sheets / dialogs / modals: GPU layer for slide animations */
 [data-radix-dialog-content],
 [data-radix-sheet-content],
 [data-radix-dropdown-menu-content],
@@ -470,7 +577,6 @@ img {
   backface-visibility: hidden;
 }
 
-/* Feed / chat list items: reduce paint on scroll */
 .feed-card,
 .chat-row,
 .people-row {
@@ -478,7 +584,6 @@ img {
   transform: translateZ(0);
 }
 
-/* Fixed/sticky elements: keep on GPU layer permanently */
 .bottom-nav,
 [class*="fixed bottom"],
 [class*="sticky top"],
@@ -488,35 +593,11 @@ header {
   backface-visibility: hidden;
 }
 
-/* Avatar ring animations: compositor-only */
-.ring-primary,
-.ring-2,
-.ring-4 {
-  will-change: opacity;
-}
+.ring-primary, .ring-2, .ring-4 { will-change: opacity; }
+.orb, .orb-delay, .orb-delay-2 { will-change: transform, opacity; }
+.animate-heart-burst { will-change: transform, opacity; }
+.animate-marquee { will-change: transform; }
 
-/* Skeleton shimmer: GPU-only animation */
-.shimmer {
-  will-change: background-position;
-  transform: translateZ(0);
-}
-
-/* Heart burst: GPU-only */
-.animate-heart-burst {
-  will-change: transform, opacity;
-}
-
-/* Orb floats: GPU-only */
-.orb, .orb-delay {
-  will-change: transform, opacity;
-}
-
-/* Marquee: GPU-only */
-.animate-marquee {
-  will-change: transform;
-}
-
-/* Respect user's reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
