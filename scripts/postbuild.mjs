@@ -11,6 +11,11 @@
  *   reference inside ssr.mjs becomes stale → ERR_MODULE_NOT_FOUND at runtime.
  *   This patch scans for the actual server-*.mjs file that was generated and
  *   rewrites the import in ssr.mjs to match, making every deploy self-consistent.
+ *
+ * Patch 3 — inject Cache-Control meta into index.html
+ *   Adds <meta http-equiv="Cache-Control"> to the generated index.html so that
+ *   even if Vercel serves a cached copy, browsers are told not to cache it.
+ *   The real fix is vercel.json headers, but this is a belt-and-suspenders guard.
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
@@ -79,5 +84,24 @@ if (!existsSync(SSR_FILE)) {
       writeFileSync(SSR_FILE, updated, "utf8");
       console.log(`[postbuild] ✓ Patch 2: ssr.mjs patched to import "./${serverFile}".`);
     }
+  }
+}
+
+// ── Patch 3: inject no-cache meta into static index.html ─────
+// Belt-and-suspenders: even if CDN ignores vercel.json headers on the HTML
+// document, the browser meta tag tells it not to cache the shell.
+const STATIC_HTML = resolve(root, ".vercel/output/static/index.html");
+
+if (!existsSync(STATIC_HTML)) {
+  console.log("[postbuild] static/index.html not found, skipping cache-meta patch.");
+} else {
+  let html = readFileSync(STATIC_HTML, "utf8");
+  const META_TAG = '<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">';
+  if (html.includes('http-equiv="Cache-Control"')) {
+    console.log("[postbuild] Cache-Control meta already present in index.html — skipping.");
+  } else {
+    html = html.replace("<head>", `<head>${META_TAG}`);
+    writeFileSync(STATIC_HTML, html, "utf8");
+    console.log("[postbuild] ✓ Patch 3: Injected no-cache meta into static/index.html.");
   }
 }
