@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BottomNav } from "@/components/BottomNav";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — chatfaa" }] }),
@@ -47,6 +48,7 @@ type Profile = {
   gender: string | null;
   gender_custom: string | null;
   account_type: string;
+  is_verified?: boolean;
   is_private: boolean;
   two_fa_enabled: boolean;
   story_privacy: string;
@@ -78,6 +80,7 @@ type ManagedUser = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  is_verified?: boolean;
 };
 
 // ─── Sections config ─────────────────────────────────────────
@@ -186,7 +189,7 @@ function SettingsPage() {
                   {profile.avatar_url && <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />}
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{profile.display_name || profile.username}</p>
+                  <p className="text-sm font-semibold truncate flex items-center gap-1">{profile.display_name || profile.username}{profile.is_verified && <VerifiedBadge size={13} tooltip={false} />}</p>
                   <p className="text-xs text-muted-foreground truncate">@{profile.username}</p>
                 </div>
               </div>
@@ -874,7 +877,7 @@ function ManagedUsersDialog({ open, onOpenChange, title, fetchFn, removeFn, remo
                 {u.avatar_url && <img src={u.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />}
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{u.display_name || u.username}</p>
+                <p className="text-sm font-medium truncate flex items-center gap-1">{u.display_name || u.username}{u.is_verified && <VerifiedBadge size={12} tooltip={false} />}</p>
                 <p className="text-xs text-muted-foreground">@{u.username}</p>
               </div>
               <button
@@ -1199,6 +1202,15 @@ function ManagementSection({ userId }: { userId: string }) {
       <SettingsGroup title="Sessions">
         <SettingsRow label="Log Out" sublabel="Sign out from this device" onClick={logout} />
         <SettingsRow label="Log Out All Devices" sublabel="Sign out everywhere" onClick={logoutAll} />
+      </SettingsGroup>
+
+      <SettingsGroup title="Developer">
+        <Link to="/admin">
+          <SettingsRow
+            label="Admin Panel"
+            sublabel="Seed data controls, stats &amp; developer tools"
+          />
+        </Link>
       </SettingsGroup>
 
       <SettingsGroup title="Account Status">

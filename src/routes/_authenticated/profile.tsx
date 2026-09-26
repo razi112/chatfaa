@@ -331,23 +331,7 @@ function ProfilePage() {
               ) : (
                 <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-1">
                   {reels.map((reel) => (
-                    <div key={reel.id}
-                      className="relative aspect-[9/16] rounded-xl overflow-hidden cursor-pointer group"
-                      style={{ background: "oklch(0.16 0.016 268)" }}
-                      onClick={() => setLightboxReel(reel)}
-                    >
-                      {reel.thumbnail_url ? (
-                        <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <video src={reel.video_url} className="w-full h-full object-cover" muted playsInline />
-                      )}
-                      <div className="absolute inset-0 bg-black/30 flex items-end p-2">
-                        <Play className="h-5 w-5 text-white fill-white drop-shadow" />
-                      </div>
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Play className="h-8 w-8 text-white fill-white" />
-                      </div>
-                    </div>
+                    <ReelThumbnail key={reel.id} reel={reel} onClick={() => setLightboxReel(reel)} />
                   ))}
                 </div>
               )}
@@ -774,23 +758,140 @@ function PostLightbox({ post, likes, meId, isOwner, onClose, onLike, onDelete }:
   );
 }
 
+// ─── Reel thumbnail ────────────────────────────────────────────
+function ReelThumbnail({ reel, onClick }: { reel: Reel; onClick: () => void }) {
+  const vidRef = useRef<HTMLVideoElement>(null);
+
+  return (
+    <div
+      className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group"
+      style={{ background: "oklch(0.16 0.016 268)" }}
+      onClick={onClick}
+    >
+      {reel.thumbnail_url ? (
+        <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        /* No thumbnail — show first frame via preload="metadata" */
+        <video
+          ref={vidRef}
+          src={reel.video_url}
+          className="w-full h-full object-cover"
+          preload="metadata"
+          muted
+          playsInline
+        />
+      )}
+
+      {/* Play icon badge — always visible */}
+      <div className="absolute bottom-2 left-2 h-6 w-6 rounded-full grid place-items-center bg-black/60">
+        <Play className="h-3 w-3 text-white fill-white" />
+      </div>
+
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <Play className="h-9 w-9 text-white fill-white drop-shadow-lg" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Reel lightbox ─────────────────────────────────────────────
 function ReelLightbox({ reel, onClose }: { reel: Reel; onClose: () => void }) {
   const vidRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => { vidRef.current?.play(); }, []);
+  const [muted, setMuted] = useState(false);
+  const [playing, setPlaying] = useState(true);
+
+  useEffect(() => {
+    const v = vidRef.current;
+    if (!v) return;
+    v.play().catch(() => {
+      // Autoplay blocked — show paused state
+      setPlaying(false);
+    });
+  }, []);
+
+  function togglePlay() {
+    const v = vidRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); }
+  }
+
+  function toggleMute() {
+    const v = vidRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95" onClick={onClose}>
-      <div className="relative rounded-3xl overflow-hidden"
-        style={{ width: "min(100vw, calc(100dvh * 9 / 16))", height: "min(100dvh, 600px)" }}
-        onClick={(e) => e.stopPropagation()}>
-        <video ref={vidRef} src={reel.video_url} loop muted playsInline className="w-full h-full object-cover" />
-        <button onClick={onClose} className="absolute top-3 right-3 h-9 w-9 rounded-full grid place-items-center bg-black/60">
-          <X className="h-5 w-5 text-white" />
-        </button>
+      {/* Container: true 9:16 aspect, max 90vh tall, centred */}
+      <div
+        className="relative rounded-3xl overflow-hidden"
+        style={{
+          height: "min(90dvh, 640px)",
+          width: "min(90vw, calc(min(90dvh, 640px) * 9 / 16))",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Video */}
+        <video
+          ref={vidRef}
+          src={reel.video_url}
+          loop
+          muted={muted}
+          playsInline
+          className="w-full h-full object-cover"
+          onClick={togglePlay}
+        />
+
+        {/* Paused overlay */}
+        {!playing && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
+            onClick={togglePlay}
+          >
+            <Play className="h-16 w-16 text-white fill-white opacity-80 drop-shadow-xl" />
+          </div>
+        )}
+
+        {/* Top controls */}
+        <div className="absolute top-3 left-0 right-0 flex items-center justify-between px-3">
+          {/* Mute / unmute */}
+          <button
+            onClick={toggleMute}
+            className="h-9 w-9 rounded-full grid place-items-center bg-black/60 backdrop-blur-sm"
+            aria-label={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? (
+              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-white">
+                <path d="M16.5 12A4.5 4.5 0 0 0 14 7.97V10.18L16.45 12.63C16.48 12.43 16.5 12.22 16.5 12ZM19 12C19 12.94 18.8 13.82 18.46 14.64L19.97 16.15C20.63 14.91 21 13.5 21 12C21 7.72 18.01 4.14 14 3.23V5.29C16.89 6.15 19 8.83 19 12ZM4.27 3L3 4.27L7.73 9H3V15H7L12 20V13.27L16.25 17.52C15.58 18.04 14.83 18.45 14 18.7V20.76C15.38 20.45 16.63 19.82 17.68 18.96L19.73 21L21 19.73L12 10.73L4.27 3ZM12 4L9.91 6.09L12 8.18V4Z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-white">
+                <path d="M3 9V15H7L12 20V4L7 9H3ZM16.5 12A4.5 4.5 0 0 0 14 7.97V16.02A4.5 4.5 0 0 0 16.5 12ZM14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z"/>
+              </svg>
+            )}
+          </button>
+
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="h-9 w-9 rounded-full grid place-items-center bg-black/60 backdrop-blur-sm"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+        </div>
+
+        {/* Caption */}
         {reel.caption && (
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-16"
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)" }}>
-            <p className="text-white text-sm">{reel.caption}</p>
+          <div
+            className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-16 pointer-events-none"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
+          >
+            <p className="text-white text-sm leading-relaxed">{reel.caption}</p>
           </div>
         )}
       </div>

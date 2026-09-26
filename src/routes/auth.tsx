@@ -123,15 +123,8 @@ function AuthPage() {
           else toast.error(error.message);
           return;
         }
-        if (signUpData.session) {
-          toast.success("Account created! Welcome to chatfaa 🎉");
-          navigate({ to: "/feed" });
-          return;
-        }
-        toast.success("Check your email to confirm your account, then log in.");
-        setMode("login");
-        setShowPassword(false);
-        setForm({ username: parsed.data.username, email: "", password: "" });
+        toast.success("Account created! Welcome to chatfaa 🎉");
+        navigate({ to: "/feed" });
       } else {
         const parsed = loginSchema.safeParse({ username: form.username, password: form.password });
         if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
@@ -152,8 +145,6 @@ function AuthPage() {
         if (error) {
           if (error.message.toLowerCase().includes("invalid") || error.message.toLowerCase().includes("credentials")) {
             toast.error("Wrong password. Try again.");
-          } else if (error.message.toLowerCase().includes("confirm")) {
-            toast.error("Please confirm your email before logging in.");
           } else {
             toast.error(error.message);
           }

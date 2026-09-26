@@ -90,7 +90,11 @@ function ReelsPage() {
   const likesQ = useQuery({
     queryKey: ["reel-likes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("reel_likes").select("*");
+      // Only fetch the current user's likes — avoids loading the full table
+      const { data, error } = await supabase
+        .from("reel_likes")
+        .select("*")
+        .eq("user_id", user!.id);
       if (error) throw error;
       return data as ReelLike[];
     },
@@ -309,8 +313,22 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
   const lastTapRef = useRef<number>(0);
   const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
 
-  const liked = likes.some((l) => l.user_id === meId);
-  const likeCount = likes.length;
+  const liked = likes.some((l) => l.reel_id === reel.id && l.user_id === meId);
+
+  // Total like count fetched via count aggregate — separate from user-scoped liked state
+  const likeCountQ = useQuery({
+    queryKey: ["reel-like-count", reel.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("reel_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("reel_id", reel.id);
+      if (error) return 0;
+      return count ?? 0;
+    },
+  });
+  const baseCount = likeCountQ.data ?? 0;
+  const likeCount = liked ? Math.max(baseCount, 1) : baseCount;
 
   useEffect(() => {
     const vid = videoRef.current;
@@ -337,8 +355,12 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
     if (delta < 300 && delta > 0) {
       // Double tap — like if not already liked
       if (!liked) {
+        // Optimistic insert then sync
+        const newLike: ReelLike = { reel_id: reel.id, user_id: meId, created_at: new Date().toISOString() };
+        qc.setQueryData(["reel-likes"], (old: ReelLike[] | undefined) => [...(old ?? []), newLike]);
+        qc.setQueryData(["reel-like-count", reel.id], (old: number | undefined) => (old ?? 0) + 1);
         supabase.from("reel_likes").insert({ reel_id: reel.id, user_id: meId })
-          .then(() => qc.invalidateQueries({ queryKey: ["reel-likes"] }));
+          .then(({ error }) => { if (error) qc.invalidateQueries({ queryKey: ["reel-likes"] }); });
       }
       // Show heart burst at tap position
       const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -357,12 +379,22 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
   }
 
   async function toggleLike() {
-    if (liked) {
-      await supabase.from("reel_likes").delete().eq("reel_id", reel.id).eq("user_id", meId);
+    // Optimistic — flip instantly, revert on error
+    const wasLiked = liked;
+    if (wasLiked) {
+      qc.setQueryData(["reel-likes"], (old: ReelLike[] | undefined) =>
+        (old ?? []).filter((l) => !(l.reel_id === reel.id && l.user_id === meId))
+      );
+      qc.setQueryData(["reel-like-count", reel.id], (old: number | undefined) => Math.max(0, (old ?? 1) - 1));
+      const { error } = await supabase.from("reel_likes").delete().eq("reel_id", reel.id).eq("user_id", meId);
+      if (error) qc.invalidateQueries({ queryKey: ["reel-likes"] });
     } else {
-      await supabase.from("reel_likes").insert({ reel_id: reel.id, user_id: meId });
+      const newLike: ReelLike = { reel_id: reel.id, user_id: meId, created_at: new Date().toISOString() };
+      qc.setQueryData(["reel-likes"], (old: ReelLike[] | undefined) => [...(old ?? []), newLike]);
+      qc.setQueryData(["reel-like-count", reel.id], (old: number | undefined) => (old ?? 0) + 1);
+      const { error } = await supabase.from("reel_likes").insert({ reel_id: reel.id, user_id: meId });
+      if (error) qc.invalidateQueries({ queryKey: ["reel-likes"] });
     }
-    qc.invalidateQueries({ queryKey: ["reel-likes"] });
   }
 
   async function deleteReel() {
@@ -389,11 +421,21 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
         loop
         muted={muted}
         playsInline
+        preload="auto"
+        crossOrigin="anonymous"
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: "cover", objectPosition: "center" }}
         onTimeUpdate={(e) => {
           const vid = e.currentTarget;
           if (vid.duration) setProgress((vid.currentTime / vid.duration) * 100);
+        }}
+        onError={(e) => {
+          // Retry without crossOrigin on CORS error (some CDNs don't send headers)
+          const vid = e.currentTarget;
+          if (vid.crossOrigin) {
+            vid.crossOrigin = "";
+            vid.load();
+          }
         }}
       />
 

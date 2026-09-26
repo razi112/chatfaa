@@ -1154,7 +1154,7 @@ function CreateGroupDialog({ friends, meId, onCreated }: { friends: Profile[]; m
                 <label key={f.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 cursor-pointer">
                   <Checkbox checked={picked.has(f.id)} onCheckedChange={() => toggle(f.id)} />
                   <UserAvatar src={f.avatar_url} name={f.username} size="sm" />
-                  <div className="min-w-0 text-sm"><div className="truncate font-medium">{f.display_name || f.username}</div><div className="truncate text-xs text-muted-foreground">@{f.username}</div></div>
+                  <div className="min-w-0 text-sm"><div className="truncate font-medium flex items-center gap-1">{f.display_name || f.username}{f.is_verified && <VerifiedBadge size={12} tooltip={false} />}</div><div className="truncate text-xs text-muted-foreground">@{f.username}</div></div>
                 </label>
               ))}
             </div>
@@ -1540,8 +1540,8 @@ function MessageContextMenu({
 }
 
 // ─── Message bubble ───────────────────────────────────────────
-function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, isLast, onReply }: {
-  content: string; mine: boolean; grouped: boolean; senderName?: string; onDelete?: () => void;
+function MessageBubble({ content, mine, grouped, senderName, senderVerified, onDelete, readAt, isLast, onReply }: {
+  content: string; mine: boolean; grouped: boolean; senderName?: string; senderVerified?: boolean; onDelete?: () => void;
   readAt?: string | null; isLast?: boolean; onReply?: () => void;
 }) {
   const isSticker = content.length <= 4 && /^\p{Emoji}/u.test(content);
@@ -1581,7 +1581,7 @@ function MessageBubble({ content, mine, grouped, senderName, onDelete, readAt, i
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
       >
-        {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium">{senderName}</span>}
+        {senderName && <span className="text-[11px] text-muted-foreground ml-3 mb-0.5 font-medium flex items-center gap-1">{senderName}{senderVerified && <VerifiedBadge size={10} tooltip={false} />}</span>}
         <div className={cn("group flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%]", mine ? "flex-row-reverse" : "flex-row")}>
           {isSticker ? (
             <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
@@ -1966,6 +1966,7 @@ function GroupChatWindow({ group, meId, members, profiles, friends, presence, on
               const grouped = !!(prev && prev.sender_id === m.sender_id && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000));
               return <MessageBubble key={m.id} content={m.content} mine={mine} grouped={grouped}
                 senderName={!mine && !grouped ? (sender?.display_name || sender?.username || "Member") : undefined}
+                senderVerified={!mine && !grouped ? sender?.is_verified : undefined}
                 onDelete={mine ? () => deleteMessage(m.id) : undefined} />;
             })}
           </ul>
@@ -2064,6 +2065,7 @@ function GroupInfoDialog({ open, onOpenChange, group, meId, isAdmin, memberProfi
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium flex items-center gap-2">
                         {name}
+                        {!isMe && profile?.is_verified && <VerifiedBadge size={12} tooltip={false} />}
                         {member.role === "admin" && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider"
                             style={{ background: "oklch(0.65 0.22 280 / 0.15)", color: "oklch(0.78 0.18 280)", border: "1px solid oklch(0.65 0.22 280 / 0.25)" }}>
@@ -2095,7 +2097,7 @@ function GroupInfoDialog({ open, onOpenChange, group, meId, isAdmin, memberProfi
                   : addable.map((f) => (
                     <div key={f.id} className="flex items-center gap-3 px-3 py-2">
                       <UserAvatar src={f.avatar_url} name={f.username} size="sm" />
-                      <div className="min-w-0 flex-1 text-sm"><div className="truncate font-medium">{f.display_name || f.username}</div><div className="truncate text-xs text-muted-foreground">@{f.username}</div></div>
+                      <div className="min-w-0 flex-1 text-sm"><div className="truncate font-medium flex items-center gap-1">{f.display_name || f.username}{f.is_verified && <VerifiedBadge size={12} tooltip={false} />}</div><div className="truncate text-xs text-muted-foreground">@{f.username}</div></div>
                       <Button size="sm" variant="ghost" className="rounded-lg text-xs gap-1.5" onClick={() => addMember(f.id)}><UserPlus className="h-3.5 w-3.5" /> Add</Button>
                     </div>
                   ))}

@@ -15,21 +15,8 @@ WITH CHECK (
   AND receiver_id = (SELECT f.receiver_id FROM public.friendships f WHERE f.id = friendships.id)
 );
 
--- 2) Realtime: require authentication to subscribe to any channel.
--- Postgres change events still flow through table RLS, so per-row access is
--- already enforced. This closes the unauthenticated subscribe gap.
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Authenticated can read realtime" ON realtime.messages;
-CREATE POLICY "Authenticated can read realtime"
-ON realtime.messages
-FOR SELECT
-TO authenticated
-USING (true);
-
-DROP POLICY IF EXISTS "Authenticated can write realtime" ON realtime.messages;
-CREATE POLICY "Authenticated can write realtime"
-ON realtime.messages
-FOR INSERT
-TO authenticated
-WITH CHECK (true);
+-- 2) Realtime channel access is controlled by Supabase internally.
+-- The realtime.messages table is owned by Supabase and cannot have
+-- user-defined RLS policies applied to it (results in 42501).
+-- Per-row access to realtime events is already enforced by the RLS
+-- policies on the underlying public.* tables (posts, messages, etc.).

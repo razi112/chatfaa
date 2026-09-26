@@ -43,7 +43,7 @@ type Profile = {
   id: string; username: string; display_name: string | null; avatar_url: string | null;
   is_verified?: boolean;
 };
-type PostLike = { post_id: string; user_id: string };
+type PostLike = { post_id: string; user_id: string; created_at: string };
 type PostComment = {
   id: string; post_id: string; user_id: string; content: string; created_at: string;
 };
@@ -138,7 +138,11 @@ function FeedPage() {
     retry: false,
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase as any).from("post_likes").select("*");
+        // Only fetch the current user's likes — avoids loading the full 30k+ row table
+        const { data, error } = await (supabase as any)
+          .from("post_likes")
+          .select("*")
+          .eq("user_id", user?.id);
         if (error) return [] as PostLike[];
         return data as PostLike[];
       } catch { return [] as PostLike[]; }
@@ -153,6 +157,7 @@ function FeedPage() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => {
         qc.invalidateQueries({ queryKey: ["feed-likes"] });
+        qc.invalidateQueries({ queryKey: ["post-like-count"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, () => {
         qc.invalidateQueries({ queryKey: ["post-comments"] });
@@ -490,8 +495,9 @@ function StoriesRow({ meId, meProfile }: { meId: string; meProfile: Profile | nu
                   </Avatar>
                 </div>
               </div>
-              <span className="text-[10px] text-muted-foreground truncate w-[62px] text-center">
-                {group.profile?.display_name || group.profile?.username}
+              <span className="text-[10px] text-muted-foreground truncate w-[62px] text-center flex items-center justify-center gap-0.5">
+                <span className="truncate">{group.profile?.display_name || group.profile?.username}</span>
+                {group.profile?.is_verified && <VerifiedBadge size={10} tooltip={false} />}
               </span>
             </button>
           ))}
@@ -684,8 +690,9 @@ function StoryViewer({ group, initialIndex, meId, allGroups, onClose, onNavigate
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-semibold leading-tight drop-shadow">
+            <p className="text-white text-sm font-semibold leading-tight drop-shadow flex items-center gap-1">
               {group.profile?.display_name || group.profile?.username}
+              {group.profile?.is_verified && <VerifiedBadge size={13} tooltip={false} />}
             </p>
             <p className="text-white/70 text-[11px]">{timeAgo(story.created_at)}</p>
           </div>
@@ -1105,6 +1112,51 @@ function isVideoUrl(url: string | null): boolean {
   return /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(url);
 }
 
+// ─── Song name row (shown above media, below header) ─────────
+// Mute/unmute + animated scrolling song name, Instagram-style.
+function SongNameRow({ title, artist }: { title: string; artist: string }) {
+  const [muted, setMute] = useGlobalMuted();
+
+  return (
+    <div className="flex items-center gap-2 px-3 sm:px-4 pb-2">
+      {/* Mute / unmute button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setMute(!muted); }}
+        className="shrink-0 h-6 w-6 rounded-full grid place-items-center transition-all active:scale-90"
+        style={{
+          background: "rgba(168,85,247,0.15)",
+          border: "1px solid rgba(168,85,247,0.30)",
+        }}
+        aria-label={muted ? "Unmute song" : "Mute song"}
+      >
+        {muted ? (
+          /* Muted speaker */
+          <svg viewBox="0 0 24 24" className="h-3 w-3 fill-white/70" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+          </svg>
+        ) : (
+          /* Unmuted speaker */
+          <svg viewBox="0 0 24 24" className="h-3 w-3 fill-white/70" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+        )}
+      </button>
+
+      {/* Musical note icon */}
+      <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 fill-foreground/60" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+      </svg>
+
+      {/* Animated scrolling song name */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <span className="text-[13px] text-foreground/90 font-normal whitespace-nowrap inline-block animate-marquee">
+          {title} - {artist}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Single post card ─────────────────────────────────────────
 function PostCard({ post, profile, likes, meId }: {
   post: Post; profile: Profile | undefined;
@@ -1139,17 +1191,58 @@ function PostCard({ post, profile, likes, meId }: {
     return () => observer.disconnect();
   }, []);
 
-  const liked = likes.some((l) => l.user_id === meId);
-  const likeCount = likes.length;
+  // Whether the current user liked this post (from user-scoped likesQ)
+  const liked = likes.some((l) => l.post_id === post.id && l.user_id === meId);
+
+  // Total like count — fetched per post via count aggregate
+  const likeCountQ = useQuery({
+    queryKey: ["post-like-count", post.id],
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from("post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", post.id);
+      if (error) return 0;
+      return count ?? 0;
+    },
+  });
+  // Optimistic: if user just liked this post, add 1 to the fetched count
+  const baseCount = likeCountQ.data ?? 0;
+  const likeCount = liked
+    ? Math.max(baseCount, 1)   // ensure at least 1 when we know we liked it
+    : baseCount;
 
   async function toggleLike() {
-    if (liked) {
-      await (supabase as any).from("post_likes").delete().eq("post_id", post.id).eq("user_id", meId);
+    // Optimistic update — flip the heart immediately, revert on error
+    const prevLikes = likes;
+    const wasLiked = liked;
+    if (wasLiked) {
+      qc.setQueryData(["feed-likes"], (old: PostLike[] | undefined) =>
+        (old ?? []).filter((l) => !(l.post_id === post.id && l.user_id === meId))
+      );
+      // Optimistically decrement count
+      qc.setQueryData(["post-like-count", post.id], (old: number | undefined) => Math.max(0, (old ?? 1) - 1));
+      const { error } = await (supabase as any).from("post_likes").delete().eq("post_id", post.id).eq("user_id", meId);
+      if (error) {
+        // Revert
+        qc.setQueryData(["feed-likes"], (old: PostLike[] | undefined) => [...(old ?? []), ...prevLikes.filter(l => l.post_id === post.id && l.user_id === meId)]);
+        qc.invalidateQueries({ queryKey: ["post-like-count", post.id] });
+      }
     } else {
-      await (supabase as any).from("post_likes").insert({ post_id: post.id, user_id: meId });
+      const newLike: PostLike = { post_id: post.id, user_id: meId, created_at: new Date().toISOString() };
+      qc.setQueryData(["feed-likes"], (old: PostLike[] | undefined) => [...(old ?? []), newLike]);
+      // Optimistically increment count
+      qc.setQueryData(["post-like-count", post.id], (old: number | undefined) => (old ?? 0) + 1);
+      const { error } = await (supabase as any).from("post_likes").insert({ post_id: post.id, user_id: meId });
+      if (error) {
+        // Revert
+        qc.setQueryData(["feed-likes"], (old: PostLike[] | undefined) =>
+          (old ?? []).filter((l) => !(l.post_id === post.id && l.user_id === meId))
+        );
+        qc.invalidateQueries({ queryKey: ["post-like-count", post.id] });
+      }
     }
-    qc.invalidateQueries({ queryKey: ["feed-likes"] });
-    qc.invalidateQueries({ queryKey: ["post-likes"] }); // keep profile page in sync
+    qc.invalidateQueries({ queryKey: ["post-likes"] });
   }
 
   async function deletePost() {
@@ -1218,6 +1311,14 @@ function PostCard({ post, profile, likes, meId }: {
         )}
       </div>
 
+      {/* Instagram-style song name — below header, above media */}
+      {post.music_preview_url && (
+        <SongNameRow
+          title={post.music_title!}
+          artist={post.music_artist!}
+        />
+      )}
+
       {/* Media: video or image */}
       {post.image_url && (
         <div
@@ -1272,7 +1373,7 @@ function PostCard({ post, profile, likes, meId }: {
                   <Heart className="h-20 w-20 animate-heart-burst" style={{ color: "#e6337e", fill: "#e6337e" }} />
                 </div>
               )}
-              {/* Instagram-style music overlay */}
+              {/* Hidden audio player (plays music, no visual overlay) */}
               {post.music_preview_url && (
                 <PostMusicOverlay
                   title={post.music_title!}
@@ -1280,6 +1381,7 @@ function PostCard({ post, profile, likes, meId }: {
                   artworkUrl={post.music_artwork_url}
                   previewUrl={post.music_preview_url}
                   startSec={post.music_start_sec ?? 0}
+                  hiddenAudio
                 />
               )}
             </>
@@ -1295,7 +1397,7 @@ function PostCard({ post, profile, likes, meId }: {
           artworkUrl={post.music_artwork_url}
           previewUrl={post.music_preview_url}
           startSec={post.music_start_sec ?? 0}
-          standalone
+          hiddenAudio
         />
       )}
 
@@ -1355,53 +1457,120 @@ function PostCard({ post, profile, likes, meId }: {
   );
 }
 
+// ─── Global active audio tracker (one song at a time) ────────
+// When a new PostMusicOverlay becomes visible, it calls stopOthers()
+// so any previously playing overlay pauses first.
+const activeAudioRef = { current: null as HTMLAudioElement | null };
+
+// ─── Global muted state (shared across all PostMusicOverlay instances) ──
+// When any overlay unmutes, all others follow suit instantly.
+let globalMuted = true;
+const muteSubscribers = new Set<(m: boolean) => void>();
+function setGlobalMuted(next: boolean) {
+  globalMuted = next;
+  muteSubscribers.forEach((fn) => fn(next));
+}
+function useGlobalMuted() {
+  const [muted, setMuted] = useState(() => globalMuted);
+  useEffect(() => {
+    muteSubscribers.add(setMuted);
+    return () => { muteSubscribers.delete(setMuted); };
+  }, []);
+  return [muted, setGlobalMuted] as const;
+}
+
 // ─── Instagram-style music overlay ───────────────────────────
-// Auto-plays muted on mount. Mute/unmute button only — no play button.
-function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0, standalone }: {
+// Plays only when the post is ≥50% visible in the viewport.
+// Only one post's audio plays at a time.
+function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0, standalone, hiddenAudio }: {
   title: string; artist: string;
   artworkUrl: string | null; previewUrl: string;
-  startSec?: number; standalone?: boolean;
+  startSec?: number; standalone?: boolean; hiddenAudio?: boolean;
 }) {
-  const [muted, setMuted] = useState(true);
+  const [muted] = useGlobalMuted();
+  const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-play muted, starting from the selected segment
+  // Create audio instance
   useEffect(() => {
     const audio = new Audio(previewUrl);
     audio.loop = true;
-    audio.muted = true;
+    audio.muted = globalMuted;
     audio.volume = 0.7;
     audio.currentTime = startSec;
-    audio.play().catch(() => {});
     audioRef.current = audio;
     return () => { audio.pause(); audio.src = ""; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewUrl, startSec]);
+
+  // Sync muted state to audio element whenever global muted changes
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = muted;
+  }, [muted]);
+
+  // Play only when the post is visible (≥50%); pause otherwise
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    // For standalone (text-post) overlays the container IS the observable element;
+    // for image overlays we want to observe the parent article / image wrapper,
+    // so we walk up to the nearest <article> or fall back to the node itself.
+    const target: Element = node.closest("article") ?? node;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        if (entry.isIntersecting) {
+          // Pause whichever other post was playing
+          if (activeAudioRef.current && activeAudioRef.current !== audio) {
+            activeAudioRef.current.pause();
+          }
+          activeAudioRef.current = audio;
+          audio.play().catch(() => {});
+          setPlaying(true);
+        } else {
+          audio.pause();
+          setPlaying(false);
+          if (activeAudioRef.current === audio) activeAudioRef.current = null;
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   function toggleMute(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!audioRef.current) return;
-    const next = !muted;
-    audioRef.current.muted = next;
-    setMuted(next);
+    setGlobalMuted(!muted);
   }
 
-  // Standalone (text post, no image) — render as a dark banner
+  // Hidden audio only — no visual (used when song name is shown above image)
+  if (hiddenAudio) {
+    return <div ref={containerRef} className="hidden" />;
+  }
+
+  // Standalone (text post, no image) — Instagram-style song label row
   if (standalone) {
     return (
-      <div className="relative mx-0 flex items-center gap-3 px-4 py-3 overflow-hidden"
+      <div ref={containerRef} className="relative mx-0 flex items-center gap-2 px-4 py-2.5 overflow-hidden"
         style={{ background: "rgba(14,10,28,0.95)", borderTop: "1px solid rgba(168,85,247,0.14)" }}>
-        {/* Scrolling title */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {artworkUrl && (
-            <img src={artworkUrl} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0" />
-          )}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <Music className="h-3 w-3 text-primary shrink-0" />
-              <p className="text-xs font-semibold text-foreground truncate">{title}</p>
-            </div>
-            <p className="text-[11px] text-muted-foreground truncate">{artist}</p>
-          </div>
+        {/* Musical note icon */}
+        <svg
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5 shrink-0 fill-white/80"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+        </svg>
+        {/* Scrolling track name */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <span className="text-white text-[13px] font-semibold whitespace-nowrap inline-block animate-marquee">
+            {title} - {artist}
+          </span>
         </div>
         {/* Mute toggle */}
         <button
@@ -1415,45 +1584,26 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
     );
   }
 
-  // Overlay on image — Instagram-style floating pill (bottom-left) + mute button (bottom-right)
+  // Overlay on image — Instagram-style song label (bottom-left) + mute button (bottom-right)
   return (
-    <>
-      {/* Floating music pill — bottom left */}
-      <div
-        className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-full px-2 py-1.5 max-w-[60%]"
-        style={{
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.12)",
-        }}
-      >
-        {/* Spinning vinyl disc */}
-        <div className="relative shrink-0 h-7 w-7">
-          {artworkUrl ? (
-            <img
-              src={artworkUrl}
-              alt=""
-              className="h-7 w-7 rounded-full object-cover border border-white/20 animate-spin-slow"
-            />
-          ) : (
-            <div
-              className="h-7 w-7 rounded-full border border-white/20 grid place-items-center animate-spin-slow"
-              style={{ background: "rgba(168,85,247,0.7)" }}
-            >
-              <Music className="h-3 w-3 text-white" />
-            </div>
-          )}
-          {/* Vinyl center hole */}
-          <div className="absolute inset-0 m-auto h-1.5 w-1.5 rounded-full bg-black/70 pointer-events-none" />
-        </div>
+    <div ref={containerRef} className="contents">
+      {/* Instagram-style song name — bottom left */}
+      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 max-w-[70%]">
+        {/* Musical note icon */}
+        <svg
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5 shrink-0 fill-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+        </svg>
 
         {/* Scrolling track name */}
-        <div className="overflow-hidden max-w-[130px]">
+        <div className="overflow-hidden">
           <span
-            className="text-white text-[11px] font-semibold whitespace-nowrap inline-block animate-marquee"
+            className="text-white text-[13px] font-semibold whitespace-nowrap inline-block animate-marquee drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
           >
-            {title} · {artist}
+            {title} - {artist}
           </span>
         </div>
       </div>
@@ -1471,7 +1621,7 @@ function PostMusicOverlay({ title, artist, artworkUrl, previewUrl, startSec = 0,
       >
         {muted ? <MuteIcon /> : <UnmuteIcon />}
       </button>
-    </>
+    </div>
   );
 }
 
@@ -1697,7 +1847,7 @@ function CommentsDrawer({ post, meId, onClose }: {
                 </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-xs font-semibold">{p?.display_name || p?.username || "user"}</span>
+                    <span className="text-xs font-semibold flex items-center gap-1">{p?.display_name || p?.username || "user"}{p?.is_verified && <VerifiedBadge size={11} tooltip={false} />}</span>
                     <span className="text-[10px] text-muted-foreground">{timeAgo(c.created_at)}</span>
                   </div>
                   <p className="text-sm mt-0.5 leading-relaxed">{c.content}</p>
