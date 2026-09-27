@@ -1,5 +1,6 @@
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -53,11 +54,18 @@ const DEFAULT_REL: FollowRelationship = {
 };
 
 // ─── useFollowCounts ──────────────────────────────────────────
+// Query key includes the viewer's auth id so the cache is invalidated
+// the moment the session resolves — prevents the pre-auth anon result
+// (0 followers) from being served to an authenticated viewer.
 export function useFollowCounts(userId: string) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["follow-counts", userId],
+    // Include viewer id in key: anon ("") and logged-in (user.id) get
+    // separate cache entries, so logging in triggers a fresh fetch.
+    queryKey: ["follow-counts", userId, user?.id ?? ""],
     enabled: !!userId,
-    retry: false,
+    staleTime: 30_000,          // re-fetch after 30 s in background
+    retry: 2,                   // retry on transient auth-timing failures
     queryFn: async () => {
       try {
         const { data, error } = await supabase.rpc("get_follow_counts", { _user_id: userId });
