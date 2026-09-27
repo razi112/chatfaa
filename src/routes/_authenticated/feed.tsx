@@ -13,6 +13,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { UploadPostWizard } from "@/components/UploadPostWizard";
 import { CreateHub } from "@/components/CreateHub";
+import { ShareModal, type SharePayload } from "@/components/ShareModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, fmtCount } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/feed")({
   head: () => ({ meta: [{ title: "Feed — chatfaa" }] }),
@@ -1099,6 +1100,41 @@ function AvatarIconMobile({ className }: { className?: string }) {
   return <AvatarIcon className={cn("h-5 w-5", className)} />;
 }
 
+// ─── Share / copy-link helper ─────────────────────────────────
+// 1. Tries the Web Share API (works on mobile + Safari)
+// 2. Falls back to clipboard API
+// 3. Final fallback: textarea + execCommand (HTTP / denied perms)
+async function shareOrCopy(title: string, text: string, url: string) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return; // user cancelled
+    }
+  }
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(url);
+      return "copied";
+    } catch { /* fall through */ }
+  }
+  // Legacy execCommand fallback (works on HTTP)
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    return "copied";
+  } catch {
+    return "error";
+  }
+}
+
 // ─── Snap ratio to nearest Instagram post format ─────────────
 function snapPostRatio(w: number, h: number): string {
   const r = w / h;
@@ -1164,6 +1200,7 @@ function PostCard({ post, profile, likes, meId }: {
 }) {
   const qc = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgRatio, setImgRatio] = useState<string>("4/5"); // default portrait until loaded
   const [videoMuted, setVideoMuted] = useState(true);
@@ -1409,7 +1446,7 @@ function PostCard({ post, profile, likes, meId }: {
             liked ? "text-red-500" : "text-muted-foreground hover:text-foreground")}>
             <Heart className={cn("h-6 w-6 transition-all", liked && "fill-red-500 scale-110")} />
           </div>
-          <span className={cn("text-sm font-medium", liked ? "text-red-400" : "text-muted-foreground")}>{likeCount > 0 ? likeCount : ""}</span>
+          <span className={cn("text-sm font-medium", liked ? "text-red-400" : "text-muted-foreground")}>{likeCount > 0 ? fmtCount(likeCount) : ""}</span>
         </button>
 
         {/* Comment */}
@@ -1420,9 +1457,12 @@ function PostCard({ post, profile, likes, meId }: {
           <PostCommentCount postId={post.id} />
         </button>
 
-        {/* Share (visual only for now) */}
-        <button className="flex items-center gap-1.5 ml-auto">
-          <div className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground transition-all">
+        {/* Share */}
+        <button
+          className="flex items-center gap-1.5 ml-auto"
+          onClick={() => setShareOpen(true)}
+        >
+          <div className="h-10 w-10 grid place-items-center rounded-xl text-muted-foreground hover:text-foreground transition-all active:scale-90">
             <Send className="h-5 w-5" />
           </div>
         </button>
@@ -1431,7 +1471,7 @@ function PostCard({ post, profile, likes, meId }: {
       {/* Likes summary */}
       {likeCount > 0 && (
         <div className="px-3 sm:px-4 pb-1">
-          <span className="text-sm font-semibold">{likeCount.toLocaleString()} {likeCount === 1 ? "like" : "likes"}</span>
+          <span className="text-sm font-semibold">{fmtCount(likeCount)} {likeCount === 1 ? "like" : "likes"}</span>
         </div>
       )}
 

@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { UploadPostWizard } from "@/components/UploadPostWizard";
-import { cn } from "@/lib/utils";
+import { cn, fmtCount } from "@/lib/utils";
 
 const searchSchema = z.object({ userId: z.string().optional() });
 
@@ -115,12 +115,14 @@ function ProfilePage() {
     },
   });
 
+  // Scope to the current user's own likes — avoids a full-table scan
   const postLikesQ = useQuery({
-    queryKey: ["post-likes"],
+    queryKey: ["feed-likes"],
     retry: false,
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase as any).from("post_likes").select("*");
+        const { data, error } = await (supabase as any)
+          .from("post_likes").select("*").eq("user_id", user?.id);
         if (error) return [] as PostLike[];
         return data as PostLike[];
       } catch { return [] as PostLike[]; }
@@ -146,7 +148,7 @@ function ProfilePage() {
   useEffect(() => {
     const ch = supabase.channel("rt-profile-" + targetId)
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => qc.invalidateQueries({ queryKey: ["posts", targetId] }))
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => qc.invalidateQueries({ queryKey: ["post-likes"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => qc.invalidateQueries({ queryKey: ["feed-likes"] }))
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => {
         qc.invalidateQueries({ queryKey: ["follow-counts", targetId] });
         qc.invalidateQueries({ queryKey: ["follow-rel", user?.id, targetId] });
@@ -164,7 +166,7 @@ function ProfilePage() {
     } else {
       await (supabase as any).from("post_likes").insert({ post_id: postId, user_id: user.id });
     }
-    qc.invalidateQueries({ queryKey: ["post-likes"] });
+    qc.invalidateQueries({ queryKey: ["feed-likes"] });
   }
 
   async function deletePost(postId: string) {
@@ -297,7 +299,6 @@ function ProfilePage() {
               ) : (
                 <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-1">
                   {posts.map((post) => {
-                    const likeCount = likes.filter((l) => l.post_id === post.id).length;
                     const liked = likes.some((l) => l.post_id === post.id && l.user_id === user.id);
                     return (
                       <div key={post.id}
@@ -314,7 +315,8 @@ function ProfilePage() {
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                           <span className="flex items-center gap-1 text-white text-sm font-semibold">
-                            <Heart className={cn("h-4 w-4", liked ? "fill-red-500 text-red-500" : "")} /> {likeCount}
+                            <Heart className={cn("h-4 w-4", liked ? "fill-red-500 text-red-500" : "")} />
+                            <PostLikeCount postId={post.id} />
                           </span>
                         </div>
                       </div>
@@ -556,7 +558,7 @@ function StatBtn({ label, value, onClick, badge }: {
 }) {
   return (
     <button onClick={onClick} className="text-center relative group hover:opacity-80 transition-opacity">
-      <div className="text-lg font-bold">{value.toLocaleString()}</div>
+      <div className="text-lg font-bold">{fmtCount(value)}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
       {badge != null && badge > 0 && (
         <span className="absolute -top-1 -right-2 h-4 min-w-4 px-0.5 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
@@ -897,6 +899,22 @@ function ReelLightbox({ reel, onClose }: { reel: Reel; onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+// ─── Per-post like count (COUNT query) ────────────────────────
+function PostLikeCount({ postId }: { postId: string }) {
+  const { data } = useQuery({
+    queryKey: ["post-like-count", postId],
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from("post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", postId);
+      if (error) return 0;
+      return count ?? 0;
+    },
+  });
+  return <>{fmtCount(data ?? 0)}</>;
 }
 
 // ─── Skeletons & empty states ──────────────────────────────────

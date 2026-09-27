@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, fmtCount } from "@/lib/utils";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { BottomNav } from "@/components/BottomNav";
 
@@ -52,6 +52,35 @@ function timeAgo(iso: string) {
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d`;
   return new Date(iso).toLocaleDateString();
+}
+
+// ─── Share / copy-link helper ─────────────────────────────────
+async function shareOrCopy(title: string, text: string, url: string) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    }
+  }
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(url);
+      return "copied";
+    } catch { /* fall through */ }
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    return "copied";
+  } catch { return "error"; }
 }
 
 // ─── Main page ────────────────────────────────────────────────
@@ -521,7 +550,7 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
           <div className="h-11 w-11 rounded-full grid place-items-center transition-all active:scale-90">
             <Heart className={cn("h-6 w-6 transition-all", liked ? "fill-red-500 text-red-500 scale-110" : "text-white")} />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">{likeCount}</span>
+          <span className="text-white text-xs font-semibold drop-shadow">{fmtCount(likeCount)}</span>
         </button>
 
         {/* Comments */}
@@ -532,6 +561,25 @@ function ReelCard({ reel, profile, likes, meId, isActive }: {
           <span className="text-white text-xs font-semibold drop-shadow">
             <CommentCount reelId={reel.id} />
           </span>
+        </button>
+
+        {/* Share */}
+        <button
+          onClick={async () => {
+            const url = `${window.location.origin}/reels#reel-${reel.id}`;
+            const result = await shareOrCopy(
+              `Reel by @${profile?.username ?? "user"} on chatfaa`,
+              reel.caption ? `${reel.caption}\n\n${url}` : url,
+              url,
+            );
+            if (result === "copied") toast.success("Link copied!");
+            else if (result === "error") toast.error("Could not copy link");
+          }}
+          className="flex flex-col items-center gap-1"
+        >
+          <div className="h-11 w-11 rounded-full grid place-items-center bg-black/40 hover:bg-black/60 transition-all active:scale-90">
+            <Send className="h-6 w-6 text-white" />
+          </div>
         </button>
 
         {/* Mute */}

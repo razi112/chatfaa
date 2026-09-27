@@ -32,6 +32,9 @@ type SeedStats = {
 
 type LogLine = { ts: string; level: "info" | "ok" | "error" | "warn"; msg: string };
 
+const GHOST_BATCH = 1_000;   // rows per fast_ghost_followers() call
+const GHOST_TARGET = 1_000_000; // total ghost followers to add
+
 // ─── Env guard ─────────────────────────────────────────────────────────────────
 const SEED_DATA_MODE = import.meta.env.VITE_SEED_DATA_MODE === "true";
 
@@ -71,7 +74,7 @@ function StatCard({
         <Icon className="h-4 w-4" style={{ color: c.text }} />
       </div>
       <p className="text-2xl font-bold tabular-nums" style={{ color: c.text }}>
-        {typeof value === "number" ? value.toLocaleString() : value}
+        {typeof value === "number" ? value.toLocaleString("en-US") : value}
       </p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
@@ -200,9 +203,10 @@ function ConfirmDialog({
 function AdminPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [busy, setBusy] = useState<"generate" | "reset" | "remove" | null>(null);
+  const [busy, setBusy] = useState<"generate" | "reset" | "remove" | "ghost" | null>(null);
   const [logs, setLogs] = useState<LogLine[]>([]);
-  const [confirm, setConfirm] = useState<"generate" | "reset" | "remove" | null>(null);
+  const [confirm, setConfirm] = useState<"generate" | "reset" | "remove" | "ghost" | null>(null);
+  const [ghostProgress, setGhostProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Fetch seed stats via RPC
   const statsQ = useQuery<SeedStats>({
@@ -492,6 +496,67 @@ function AdminPage() {
     }
   }, [qc]);
 
+  const addGhostFollowers = useCallback(async () => {
+    setBusy("ghost");
+    setLogs([]);
+    setGhostProgress({ done: 0, total: GHOST_TARGET });
+
+    try {
+      // 1. Resolve @chatfaa_official id
+      log("info", "Resolving @chatfaa_official…");
+      const { data: officialRow, error: oErr } = await (supabase as any)
+        .from("profiles").select("id").eq("username", "chatfaa_official").maybeSingle();
+      if (oErr || !officialRow) throw new Error("@chatfaa_official not found — generate seed data first.");
+      const officialId: string = officialRow.id;
+      log("ok", `Official ID: ${officialId}`);
+
+      // 2. Count how many ghost followers already exist
+      const { count: existingCount } = await (supabase as any)
+        .from("follows")
+        .select("id", { count: "exact", head: true })
+        .eq("following_id", officialId);
+      const alreadyHave = existingCount ?? 0;
+      const needed = Math.max(0, GHOST_TARGET - alreadyHave);
+      log("info", `Existing followers: ${alreadyHave.toLocaleString()}. Need to add: ${needed.toLocaleString()}.`);
+
+      if (needed === 0) {
+        log("ok", "Already at 1M followers — nothing to do!");
+        toast.success("Already at 1M followers!");
+        return;
+      }
+
+      // 3. Call fast_ghost_followers() in batches
+      let totalInserted = 0;
+      const batches = Math.ceil(needed / GHOST_BATCH);
+      log("info", `Running ${batches} batches of ${GHOST_BATCH.toLocaleString()} — this will take a few minutes…`);
+
+      for (let b = 0; b < batches; b++) {
+        const thisSize = Math.min(GHOST_BATCH, needed - totalInserted);
+        const { data: inserted, error: bErr } = await (supabase as any)
+          .rpc("fast_ghost_followers", { p_official_id: officialId, p_batch_size: thisSize });
+        if (bErr) throw new Error(`Batch ${b + 1} failed: ${bErr.message}`);
+        totalInserted += (inserted ?? 0);
+        setGhostProgress({ done: alreadyHave + totalInserted, total: GHOST_TARGET });
+
+        if ((b + 1) % 50 === 0 || b === batches - 1) {
+          log("ok", `Batch ${b + 1}/${batches} — ${(alreadyHave + totalInserted).toLocaleString()} followers total`);
+        }
+      }
+
+      log("ok", `✅ Done! ${totalInserted.toLocaleString()} ghost followers added. Total: ${(alreadyHave + totalInserted).toLocaleString()}`);
+      toast.success(`${totalInserted.toLocaleString()} ghost followers added!`);
+      await qc.invalidateQueries({ queryKey: ["seed-stats"] });
+      await qc.invalidateQueries({ queryKey: ["follow-counts"] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log("error", msg);
+      toast.error(`Ghost followers failed: ${msg}`);
+    } finally {
+      setBusy(null);
+      setGhostProgress(null);
+    }
+  }, [qc]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const profileQ = useQuery({
     queryKey: ["admin-me", user?.id],
     enabled: !!user?.id,
@@ -599,7 +664,7 @@ function AdminPage() {
                 <StatCard icon={MessageCircle} label="Reel Comments"   value={stats.reel_comments} color="violet" />
               </div>
               <p className="text-xs text-muted-foreground text-right mt-2">
-                <span className="font-semibold text-foreground/70">{totalRows.toLocaleString()}</span> total seed rows
+                <span className="font-semibold text-foreground/70">{totalRows.toLocaleString("en-US")}</span> total seed rows
               </p>
             </>
           )}
@@ -680,6 +745,49 @@ function AdminPage() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 Permanently delete all synthetic users, posts, reels and engagement
               </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </button>
+
+          {/* Ghost followers */}
+          <button
+            disabled={busy !== null || stats.profiles === 0}
+            onClick={() => setConfirm("ghost")}
+            className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              background: "rgba(245,158,11,0.07)",
+              border: "1px solid rgba(245,158,11,0.22)",
+            }}
+          >
+            <div
+              className="h-10 w-10 rounded-xl grid place-items-center shrink-0"
+              style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}
+            >
+              {busy === "ghost" ? <Loader2 className="h-5 w-5 text-amber-400 animate-spin" /> : <Users className="h-5 w-5 text-amber-400" />}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold">Add 1M Ghost Followers</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bulk-insert 1,000,000 ghost follower accounts for @chatfaa_official (skips if already at 1M)
+              </p>
+              {/* Progress bar */}
+              {ghostProgress && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-[10px] text-amber-300/70 mb-1">
+                    <span>{ghostProgress.done.toLocaleString()} / {ghostProgress.total.toLocaleString()}</span>
+                    <span>{Math.round((ghostProgress.done / ghostProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(245,158,11,0.15)" }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${(ghostProgress.done / ghostProgress.total) * 100}%`,
+                        background: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </button>
@@ -770,6 +878,15 @@ function AdminPage() {
         confirmLabel="Remove"
         destructive
         onConfirm={() => { setConfirm(null); callSeedRpc("remove"); }}
+        onCancel={() => setConfirm(null)}
+      />
+
+      <ConfirmDialog
+        open={confirm === "ghost"}
+        title="Add 1M ghost followers?"
+        description="This will insert up to 1,000,000 ghost follower accounts for @chatfaa_official. Each ghost gets an auth.users row, a profile, and a follow. This runs in 1,000-row batches and may take a few minutes."
+        confirmLabel="Add 1M Followers"
+        onConfirm={() => { setConfirm(null); addGhostFollowers(); }}
         onCancel={() => setConfirm(null)}
       />
 
